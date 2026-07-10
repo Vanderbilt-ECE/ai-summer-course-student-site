@@ -1,6 +1,6 @@
 # Responsible AI & Ethics
 
-_Add a short description here._
+Why ethical choices baked into AI systems matter more than choices made by one person — because a biased system operates at scale.
 
 ## Notebooks
 

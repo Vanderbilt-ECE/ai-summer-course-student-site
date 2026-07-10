@@ -1,6 +1,6 @@
 # What ML Cannot Do - Limits and Blindspots
 
-_Add a short description here._
+Where ML breaks: distribution shift, spurious correlations, and other limits of learning purely from data.
 
 ## Notebooks
 

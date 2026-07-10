@@ -1,6 +1,6 @@
 # Training Testing and Overfitting
 
-_Add a short description here._
+Why testing a model on its own training data always looks good and tells you nothing — and how train/test splits catch overfitting.
 
 ## Notebooks
 

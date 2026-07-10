@@ -1,6 +1,6 @@
 # How LLMs Generate Text
 
-_Add a short description here._
+How next-token prediction at enormous scale turns into a system that can reason, code, and write — plus what temperature actually controls.
 
 ## Notebooks
 

@@ -1,6 +1,6 @@
 # Neural Networks Part 1 - Architecture and Intuition
 
-_Add a short description here._
+From a single perceptron to multi-layer networks — why depth and non-linearity change what a model can represent.
 
 ## Notebooks
 

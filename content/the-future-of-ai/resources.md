@@ -1,6 +1,6 @@
 # The Future of AI
 
-_Add a short description here._
+A framework for thinking about what's genuinely uncertain about AI's future, across near-, medium-, and long-term time horizons.
 
 ## Notebooks
 

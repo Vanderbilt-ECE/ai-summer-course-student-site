@@ -1,6 +1,6 @@
 # Evaluation - Beyond Accuracy
 
-_Add a short description here._
+Why accuracy alone can lie, especially on imbalanced data — confusion matrices, precision, recall, and when each one actually matters.
 
 ## Notebooks
 

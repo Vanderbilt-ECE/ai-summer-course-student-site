@@ -1,6 +1,6 @@
 # Neural Networks Part 2 - How They Train
 
-_Add a short description here._
+How a network assigns credit (and blame) across many weights: backpropagation, training dynamics, and the knobs you actually control.
 
 ## Notebooks
 

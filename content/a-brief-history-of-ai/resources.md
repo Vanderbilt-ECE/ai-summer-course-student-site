@@ -1,6 +1,6 @@
 # A Brief History of AI
 
-_Add a short description here._
+How AI got here — two boom-and-bust cycles before the current one, from Turing through today's large models.
 
 ## Notebooks
 

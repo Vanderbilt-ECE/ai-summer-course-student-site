@@ -1,6 +1,6 @@
 # RLHF and LLM Failure Modes
 
-_Add a short description here._
+The three training stages that turn a raw model into an aligned assistant (RLHF), and where that alignment still breaks down in practice.
 
 ## Notebooks
 

@@ -1,6 +1,6 @@
 # Regression - The On-Ramp
 
-_Add a short description here._
+Opens the modeling black box: linear regression, then logistic regression, then the point where linear models hit a wall — setting up neural networks.
 
 ## Notebooks
 

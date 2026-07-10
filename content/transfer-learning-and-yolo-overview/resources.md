@@ -1,6 +1,6 @@
 # Transfer Learning and YOLO Overview
 
-_Add a short description here._
+Why training a vision model from scratch is expensive, how transfer learning reuses what's already been learned, and a tour of five things YOLO can do.
 
 ## Notebooks
 

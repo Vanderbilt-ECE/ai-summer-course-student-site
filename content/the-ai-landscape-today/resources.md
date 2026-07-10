@@ -1,6 +1,6 @@
 # The AI Landscape Today
 
-_Add a short description here._
+A survey of what AI actually exists right now (all of it "narrow"), who builds it, and where you already run into it day to day.
 
 ## Notebooks
 

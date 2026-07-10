@@ -1,6 +1,6 @@
 # What is Data Science
 
-_Add a short description here._
+Why data science sits at the intersection of math/stats, programming, and domain knowledge — and why data matters more than the algorithm.
 
 ## Notebooks
 

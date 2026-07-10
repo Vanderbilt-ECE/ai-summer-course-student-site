@@ -1,6 +1,6 @@
 # What is Machine Learning
 
-_Add a short description here._
+The paradigm shift from traditional rule-based programming to machines that improve at a task from data, without being explicitly programmed.
 
 ## Notebooks
 

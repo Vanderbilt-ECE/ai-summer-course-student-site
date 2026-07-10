@@ -1,6 +1,6 @@
 # How Models Learn - Loss and Gradient Descent
 
-_Add a short description here._
+How a model finds good parameters: loss functions, gradient descent, and the learning rate, explained with no calculus required.
 
 ## Notebooks
 

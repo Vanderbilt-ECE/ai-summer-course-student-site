@@ -1,6 +1,6 @@
 # Data Cleaning - The Other Half
 
-_Add a short description here._
+Why cleaning data is a series of judgment calls, not a mechanical checklist — and how those calls shape the model you eventually build.
 
 ## Notebooks
 

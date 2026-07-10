@@ -1,6 +1,6 @@
 # Bias and Disaggregated Evaluation
 
-_Add a short description here._
+Why a single aggregate accuracy number can hide serious group-level disparities, and how to check performance across subgroups instead of just overall.
 
 ## Notebooks
 

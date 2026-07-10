@@ -1,6 +1,6 @@
 # The ReAct Framework
 
-_Add a short description here._
+The Thought → Action → Observation loop (ReAct) that turns a language model into an agent that reasons and acts, interleaved.
 
 ## Notebooks
 
