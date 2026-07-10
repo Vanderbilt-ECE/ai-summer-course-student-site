@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 // Builds student-site/{slides,content} + manifest.json from this repo's
-// Slidev projects (Day N / Topic). Flat topic list (no days, no schedule) so
-// material can carry over across days without relabeling.
+// Slidev projects (Day N / Topic). Topics are grouped by day (so nav order
+// matches how the course actually runs) but each group is labeled by that
+// day's theme, not "Day N" — material sometimes carries over into the next
+// day, so a literal day number would go stale. The theme is read from the
+// vault's "Day N Schedule.md" heading; the schedule file itself is never
+// copied into the student site.
 //
 // Run: node scripts/sync.mjs [--skip-slides]
 //
 // ponytail: resources.md is seeded once per topic and never overwritten by
 // re-sync, since it holds hand-written descriptions + notebook links.
 
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +20,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.resolve(__dirname, "..");
 const SRC_DIR = path.resolve(OUT_DIR, "..");
+const VAULT_DIR =
+  "/Users/jonathan/Library/Mobile Documents/com~apple~CloudDocs/Obsidian/vault/Summer AI Course";
 
 const ORG = "Vanderbilt-ECE";
 const REPO = "ai-summer-course-student-site";
@@ -31,19 +37,30 @@ const slugify = (s) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
 
+// "# Day 2 — Data Exploration & Data Cleaning" -> "Data Exploration & Data Cleaning"
+function dayTheme(dayName) {
+  const schedulePath = path.join(VAULT_DIR, dayName, `${dayName} Schedule.md`);
+  if (existsSync(schedulePath)) {
+    const match = readFileSync(schedulePath, "utf8").match(/^#\s*Day\s*\d+\s*[—–-]\s*(.+)$/m);
+    if (match) return match[1].trim();
+  }
+  return dayName; // ponytail: falls back to "Day N" if the vault heading is missing/renamed
+}
+
 const days = readdirSync(SRC_DIR, { withFileTypes: true })
   .filter((d) => d.isDirectory() && /^Day \d+$/.test(d.name))
   .map((d) => ({ name: d.name, num: Number(d.name.replace("Day ", "")) }))
   .sort((a, b) => a.num - b.num);
 
-const topics = [];
+const groups = [];
 
-for (const { name: dayName } of days) {
+for (const { name: dayName, num } of days) {
   const srcDayDir = path.join(SRC_DIR, dayName);
   const topicDirs = readdirSync(srcDayDir, { withFileTypes: true }).filter(
     (d) => d.isDirectory() && d.name !== "Notebooks" && !d.name.startsWith(".")
   );
 
+  const topics = [];
   for (const t of topicDirs) {
     const title = t.name;
     const slug = slugify(title);
@@ -74,12 +91,15 @@ for (const { name: dayName } of days) {
 
     topics.push({ slug, title, hasSlides });
   }
+
+  groups.push({ slug: `day-${num}`, label: dayTheme(dayName), topics });
 }
 
 writeFileSync(
   path.join(OUT_DIR, "config.js"),
   `window.SITE_CONFIG = ${JSON.stringify({ org: ORG, repo: REPO, branch: BRANCH }, null, 2)};\n`
 );
-writeFileSync(path.join(OUT_DIR, "manifest.json"), JSON.stringify(topics, null, 2));
+writeFileSync(path.join(OUT_DIR, "manifest.json"), JSON.stringify(groups, null, 2));
 
-console.log(`\nDone. ${topics.length} topics synced.`);
+const topicCount = groups.reduce((n, g) => n + g.topics.length, 0);
+console.log(`\nDone. ${groups.length} day-groups, ${topicCount} topics synced.`);

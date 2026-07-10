@@ -23,10 +23,18 @@ async function renderTopic(topic) {
   content.innerHTML += await mdCard("Resources", `content/${topic.slug}/resources.md`);
 }
 
-function buildNav(manifest) {
-  navTree.innerHTML = `<ul class="topic-list">
-    ${manifest.map((t) => `<li data-hash="#/${t.slug}">${t.title}</li>`).join("")}
-  </ul>`;
+function buildNav(groups) {
+  navTree.innerHTML = groups
+    .map(
+      (group) => `
+    <div class="day-block">
+      <div class="day-title">${group.label}</div>
+      <ul class="topic-list">
+        ${group.topics.map((t) => `<li data-hash="#/${t.slug}">${t.title}</li>`).join("")}
+      </ul>
+    </div>`
+    )
+    .join("");
 
   navTree.querySelectorAll("[data-hash]").forEach((el) => {
     el.addEventListener("click", () => {
@@ -35,13 +43,13 @@ function buildNav(manifest) {
   });
 }
 
-function route(manifest) {
+function route(groups) {
   const [_, slug] = location.hash.split("/");
   document
     .querySelectorAll(".topic-list li")
     .forEach((li) => li.classList.toggle("active", li.dataset.hash === location.hash));
 
-  const topic = manifest.find((t) => t.slug === slug);
+  const topic = groups.flatMap((g) => g.topics).find((t) => t.slug === slug);
   if (topic) return renderTopic(topic);
 }
 

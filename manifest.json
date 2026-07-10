@@ -1,127 +1,175 @@
 [
   {
-    "slug": "a-brief-history-of-ai",
-    "title": "A Brief History of AI",
-    "hasSlides": true
+    "slug": "day-1",
+    "label": "Introduction to AI",
+    "topics": [
+      {
+        "slug": "a-brief-history-of-ai",
+        "title": "A Brief History of AI",
+        "hasSlides": true
+      },
+      {
+        "slug": "responsible-ai-and-ethics",
+        "title": "Responsible AI & Ethics",
+        "hasSlides": true
+      },
+      {
+        "slug": "the-ai-landscape-today",
+        "title": "The AI Landscape Today",
+        "hasSlides": true
+      },
+      {
+        "slug": "the-future-of-ai",
+        "title": "The Future of AI",
+        "hasSlides": true
+      },
+      {
+        "slug": "welcome-and-course-overview",
+        "title": "Welcome & Course Overview",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "responsible-ai-and-ethics",
-    "title": "Responsible AI & Ethics",
-    "hasSlides": true
+    "slug": "day-2",
+    "label": "Data Exploration & Data Cleaning",
+    "topics": [
+      {
+        "slug": "data-cleaning-the-other-half",
+        "title": "Data Cleaning - The Other Half",
+        "hasSlides": true
+      },
+      {
+        "slug": "what-is-data-science",
+        "title": "What is Data Science",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "the-ai-landscape-today",
-    "title": "The AI Landscape Today",
-    "hasSlides": true
+    "slug": "day-3",
+    "label": "Machine Learning Fundamentals",
+    "topics": [
+      {
+        "slug": "how-models-learn-loss-and-gradient-descent",
+        "title": "How Models Learn - Loss and Gradient Descent",
+        "hasSlides": true
+      },
+      {
+        "slug": "training-testing-and-overfitting",
+        "title": "Training Testing and Overfitting",
+        "hasSlides": true
+      },
+      {
+        "slug": "what-ml-cannot-do-limits-and-blindspots",
+        "title": "What ML Cannot Do - Limits and Blindspots",
+        "hasSlides": true
+      },
+      {
+        "slug": "what-is-machine-learning",
+        "title": "What is Machine Learning",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "the-future-of-ai",
-    "title": "The Future of AI",
-    "hasSlides": true
+    "slug": "day-4",
+    "label": "Applied ML: Building, Evaluating & Questioning Models",
+    "topics": [
+      {
+        "slug": "bias-and-disaggregated-evaluation",
+        "title": "Bias and Disaggregated Evaluation",
+        "hasSlides": true
+      },
+      {
+        "slug": "comparing-model-types",
+        "title": "Comparing Model Types",
+        "hasSlides": true
+      },
+      {
+        "slug": "evaluation-beyond-accuracy",
+        "title": "Evaluation - Beyond Accuracy",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "welcome-and-course-overview",
-    "title": "Welcome & Course Overview",
-    "hasSlides": true
+    "slug": "day-5",
+    "label": "Regression & Neural Networks",
+    "topics": [
+      {
+        "slug": "neural-networks-part-1-architecture-and-intuition",
+        "title": "Neural Networks Part 1 - Architecture and Intuition",
+        "hasSlides": true
+      },
+      {
+        "slug": "neural-networks-part-2-how-they-train",
+        "title": "Neural Networks Part 2 - How They Train",
+        "hasSlides": true
+      },
+      {
+        "slug": "regression-the-on-ramp",
+        "title": "Regression - The On-Ramp",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "data-cleaning-the-other-half",
-    "title": "Data Cleaning - The Other Half",
-    "hasSlides": true
+    "slug": "day-6",
+    "label": "Computer Vision",
+    "topics": [
+      {
+        "slug": "how-cnns-work",
+        "title": "How CNNs Work",
+        "hasSlides": true
+      },
+      {
+        "slug": "transfer-learning-and-yolo-overview",
+        "title": "Transfer Learning and YOLO Overview",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "what-is-data-science",
-    "title": "What is Data Science",
-    "hasSlides": true
+    "slug": "day-7",
+    "label": "Large Language Models & Prompt Engineering",
+    "topics": [
+      {
+        "slug": "how-llms-generate-text",
+        "title": "How LLMs Generate Text",
+        "hasSlides": true
+      },
+      {
+        "slug": "rlhf-and-llm-failure-modes",
+        "title": "RLHF and LLM Failure Modes",
+        "hasSlides": true
+      },
+      {
+        "slug": "the-transformer-just-enough-architecture",
+        "title": "The Transformer - Just Enough Architecture",
+        "hasSlides": true
+      }
+    ]
   },
   {
-    "slug": "how-models-learn-loss-and-gradient-descent",
-    "title": "How Models Learn - Loss and Gradient Descent",
-    "hasSlides": true
-  },
-  {
-    "slug": "training-testing-and-overfitting",
-    "title": "Training Testing and Overfitting",
-    "hasSlides": true
-  },
-  {
-    "slug": "what-ml-cannot-do-limits-and-blindspots",
-    "title": "What ML Cannot Do - Limits and Blindspots",
-    "hasSlides": true
-  },
-  {
-    "slug": "what-is-machine-learning",
-    "title": "What is Machine Learning",
-    "hasSlides": true
-  },
-  {
-    "slug": "bias-and-disaggregated-evaluation",
-    "title": "Bias and Disaggregated Evaluation",
-    "hasSlides": true
-  },
-  {
-    "slug": "comparing-model-types",
-    "title": "Comparing Model Types",
-    "hasSlides": true
-  },
-  {
-    "slug": "evaluation-beyond-accuracy",
-    "title": "Evaluation - Beyond Accuracy",
-    "hasSlides": true
-  },
-  {
-    "slug": "neural-networks-part-1-architecture-and-intuition",
-    "title": "Neural Networks Part 1 - Architecture and Intuition",
-    "hasSlides": true
-  },
-  {
-    "slug": "neural-networks-part-2-how-they-train",
-    "title": "Neural Networks Part 2 - How They Train",
-    "hasSlides": true
-  },
-  {
-    "slug": "regression-the-on-ramp",
-    "title": "Regression - The On-Ramp",
-    "hasSlides": true
-  },
-  {
-    "slug": "how-cnns-work",
-    "title": "How CNNs Work",
-    "hasSlides": true
-  },
-  {
-    "slug": "transfer-learning-and-yolo-overview",
-    "title": "Transfer Learning and YOLO Overview",
-    "hasSlides": true
-  },
-  {
-    "slug": "how-llms-generate-text",
-    "title": "How LLMs Generate Text",
-    "hasSlides": true
-  },
-  {
-    "slug": "rlhf-and-llm-failure-modes",
-    "title": "RLHF and LLM Failure Modes",
-    "hasSlides": true
-  },
-  {
-    "slug": "the-transformer-just-enough-architecture",
-    "title": "The Transformer - Just Enough Architecture",
-    "hasSlides": true
-  },
-  {
-    "slug": "agent-failure-modes",
-    "title": "Agent Failure Modes",
-    "hasSlides": true
-  },
-  {
-    "slug": "the-react-framework",
-    "title": "The ReAct Framework",
-    "hasSlides": true
-  },
-  {
-    "slug": "what-is-an-agent",
-    "title": "What is an Agent",
-    "hasSlides": true
+    "slug": "day-8",
+    "label": "AI Agents",
+    "topics": [
+      {
+        "slug": "agent-failure-modes",
+        "title": "Agent Failure Modes",
+        "hasSlides": true
+      },
+      {
+        "slug": "the-react-framework",
+        "title": "The ReAct Framework",
+        "hasSlides": true
+      },
+      {
+        "slug": "what-is-an-agent",
+        "title": "What is an Agent",
+        "hasSlides": true
+      }
+    ]
   }
 ]
