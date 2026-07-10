@@ -19,8 +19,10 @@ async function renderTopic(topic) {
     </div>
     <iframe src="${slidesPath}" style="width:100%;aspect-ratio:16/9;border:1px solid var(--border);border-radius:8px"></iframe>`;
   }
+}
 
-  content.innerHTML += await mdCard("Resources", `content/${topic.slug}/resources.md`);
+async function renderResources(day) {
+  content.innerHTML = await mdCard("Resources", `content/${day.slug}/resources.md`);
 }
 
 function buildNav(groups) {
@@ -30,7 +32,8 @@ function buildNav(groups) {
     <div class="day-block">
       <div class="day-title">${group.label}</div>
       <ul class="topic-list">
-        ${group.topics.map((t) => `<li data-hash="#/${t.slug}">${t.title}</li>`).join("")}
+        <li data-hash="#/${group.slug}/resources">Resources</li>
+        ${group.topics.map((t) => `<li data-hash="#/${group.slug}/${t.slug}">${t.title}</li>`).join("")}
       </ul>
     </div>`
     )
@@ -44,12 +47,17 @@ function buildNav(groups) {
 }
 
 function route(groups) {
-  const [_, slug] = location.hash.split("/");
+  const [_, daySlug, topicSlug] = location.hash.split("/");
   document
     .querySelectorAll(".topic-list li")
     .forEach((li) => li.classList.toggle("active", li.dataset.hash === location.hash));
 
-  const topic = groups.flatMap((g) => g.topics).find((t) => t.slug === slug);
+  const day = groups.find((g) => g.slug === daySlug);
+  if (!day) return;
+
+  if (topicSlug === "resources") return renderResources(day);
+
+  const topic = day.topics.find((t) => t.slug === topicSlug);
   if (topic) return renderTopic(topic);
 }
 

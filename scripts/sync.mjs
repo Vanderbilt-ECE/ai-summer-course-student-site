@@ -9,8 +9,9 @@
 //
 // Run: node scripts/sync.mjs [--skip-slides]
 //
-// ponytail: resources.md is seeded once per topic and never overwritten by
-// re-sync, since it holds hand-written descriptions + notebook links.
+// ponytail: content/day-N/resources.md is seeded once per day and never
+// overwritten by re-sync, since it holds hand-written topic descriptions +
+// notebook links.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -65,13 +66,6 @@ for (const { name: dayName, num } of days) {
     const title = t.name;
     const slug = slugify(title);
     const topicSrcDir = path.join(srcDayDir, title);
-    const contentDir = path.join(OUT_DIR, "content", slug);
-    mkdirSync(contentDir, { recursive: true });
-
-    const resourcesPath = path.join(contentDir, "resources.md");
-    if (!existsSync(resourcesPath)) {
-      writeFileSync(resourcesPath, `# ${title}\n\n_Add a short description here._\n\n## Notebooks\n\n- [ ] link notebook(s) here\n`);
-    }
 
     const slidesEntry = path.join(topicSrcDir, "slides.md");
     let hasSlides = existsSync(path.join(OUT_DIR, "slides", slug, "index.html"));
@@ -92,7 +86,18 @@ for (const { name: dayName, num } of days) {
     topics.push({ slug, title, hasSlides });
   }
 
-  groups.push({ slug: `day-${num}`, label: dayTheme(dayName), topics });
+  const daySlug = `day-${num}`;
+  const dayContentDir = path.join(OUT_DIR, "content", daySlug);
+  mkdirSync(dayContentDir, { recursive: true });
+  const resourcesPath = path.join(dayContentDir, "resources.md");
+  if (!existsSync(resourcesPath)) {
+    const body = topics
+      .map((t) => `## ${t.title}\n\n_Add a short description here._\n`)
+      .join("\n");
+    writeFileSync(resourcesPath, `# ${dayTheme(dayName)}\n\n${body}\n## Notebooks\n\n- [ ] link notebook(s) here\n`);
+  }
+
+  groups.push({ slug: daySlug, label: dayTheme(dayName), topics });
 }
 
 writeFileSync(
