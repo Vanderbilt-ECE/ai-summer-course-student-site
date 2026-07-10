@@ -1,0 +1,98 @@
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --muted: #666;
+  --border: #ddd;
+  --accent: #2f5fd4;
+  --sidebar-bg: #f6f7f9;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d;
+    --fg: #e8e8e8;
+    --muted: #999;
+    --border: #333;
+    --accent: #7aa2ff;
+    --sidebar-bg: #1c1e24;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  display: flex;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+#sidebar {
+  width: 300px;
+  flex: none;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 1rem;
+  overflow-y: auto;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+#sidebar h1 {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+}
+#sidebar h1 small { color: var(--muted); font-weight: normal; }
+
+.day-block { margin-bottom: 0.5rem; }
+.day-title {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.4rem 0.3rem;
+  border-radius: 4px;
+}
+.day-title:hover { background: var(--border); }
+.topic-list { list-style: none; margin: 0; padding-left: 0.9rem; }
+.topic-list li {
+  padding: 0.25rem 0.3rem;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+.topic-list li:hover, .topic-list li.active { background: var(--border); color: var(--fg); }
+
+#content {
+  flex: 1;
+  padding: 2rem 3rem;
+  max-width: 900px;
+  overflow-x: auto;
+}
+#content h1 { margin-top: 0; }
+.placeholder { color: var(--muted); }
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+.card h2 { margin-top: 0; font-size: 1rem; }
+
+.btn-row { display: flex; gap: 0.6rem; flex-wrap: wrap; margin: 0.75rem 0; }
+.btn {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.btn.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid var(--border); padding: 0.4rem 0.6rem; text-align: left; }
+pre { overflow-x: auto; background: var(--sidebar-bg); padding: 0.75rem; border-radius: 6px; }
+code { font-size: 0.9em; }

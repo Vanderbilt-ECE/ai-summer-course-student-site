@@ -1,0 +1,1 @@
+import{B as e,U as t,b as n}from"../modules/shiki-Huxcoy_f.js";import{mt as r}from"../index-3DZ7V3an.js";var i={},a={class:`slidev-layout default`};function o(r,i){return e(),n(`div`,a,[t(r.$slots,`default`)])}var s=r(i,[[`render`,o]]);export{s as t};
