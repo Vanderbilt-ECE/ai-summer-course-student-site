@@ -25,6 +25,10 @@ async function renderResources(day) {
   content.innerHTML = await mdCard("Resources", `content/${day.slug}/resources.md`);
 }
 
+async function renderWorksheet(day, worksheet) {
+  content.innerHTML = await mdCard(worksheet.title, `content/${day.slug}/worksheets/${worksheet.slug}.md`);
+}
+
 function buildNav(groups) {
   navTree.innerHTML = groups
     .map(
@@ -47,7 +51,7 @@ function buildNav(groups) {
 }
 
 function route(groups) {
-  const [_, daySlug, topicSlug] = location.hash.split("/");
+  const [_, daySlug, topicSlug, worksheetSlug] = location.hash.split("/");
   document
     .querySelectorAll(".topic-list li")
     .forEach((li) => li.classList.toggle("active", li.dataset.hash === location.hash));
@@ -56,6 +60,12 @@ function route(groups) {
   if (!day) return;
 
   if (topicSlug === "resources") return renderResources(day);
+
+  if (topicSlug === "worksheets") {
+    const worksheet = (day.worksheets || []).find((w) => w.slug === worksheetSlug);
+    if (worksheet) return renderWorksheet(day, worksheet);
+    return;
+  }
 
   const topic = day.topics.find((t) => t.slug === topicSlug);
   if (topic) return renderTopic(topic);

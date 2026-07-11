@@ -11,7 +11,9 @@
 //
 // ponytail: content/day-N/resources.md is seeded once per day and never
 // overwritten by re-sync, since it holds hand-written topic descriptions +
-// notebook links.
+// notebook links. Worksheets are the one exception: a "## Worksheets" link
+// is appended (idempotently) whenever a new worksheet file shows up, since
+// otherwise a freshly-added worksheet would be silently unreachable.
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -37,6 +39,19 @@ const slugify = (s) =>
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
+
+// Appends a link to a worksheet page under "## Worksheets" in resources.md,
+// creating the heading if needed. No-op if the link is already there.
+function ensureWorksheetLink(resourcesPath, title, hash) {
+  if (!existsSync(resourcesPath)) return;
+  const text = readFileSync(resourcesPath, "utf8");
+  if (text.includes(hash)) return;
+  const link = `- [${title}](${hash})\n`;
+  const updated = text.includes("## Worksheets\n")
+    ? text.replace("## Worksheets\n", `## Worksheets\n\n${link}`)
+    : `${text.trimEnd()}\n\n## Worksheets\n\n${link}`;
+  writeFileSync(resourcesPath, updated);
+}
 
 // "# Day 2 — Data Exploration & Data Cleaning" -> "Data Exploration & Data Cleaning"
 function dayTheme(dayName) {
@@ -97,7 +112,27 @@ for (const { name: dayName, num } of days) {
     writeFileSync(resourcesPath, `# ${dayTheme(dayName)}\n\n${body}\n## Notebooks\n\n- [ ] link notebook(s) here\n`);
   }
 
-  groups.push({ slug: daySlug, label: dayTheme(dayName), topics });
+  // Worksheets: any "*Worksheet*.md" file under Day N/Notebooks/ becomes its
+  // own standalone page, copied verbatim and linked from resources.md.
+  const notebooksDir = path.join(srcDayDir, "Notebooks");
+  const worksheets = [];
+  if (existsSync(notebooksDir)) {
+    const worksheetFiles = readdirSync(notebooksDir).filter((f) => /worksheet.*\.md$/i.test(f));
+    if (worksheetFiles.length) {
+      const worksheetsOutDir = path.join(dayContentDir, "worksheets");
+      mkdirSync(worksheetsOutDir, { recursive: true });
+      for (const file of worksheetFiles) {
+        const text = readFileSync(path.join(notebooksDir, file), "utf8");
+        const title = (text.match(/^#\s+(.+)$/m)?.[1] ?? file.replace(/\.md$/, "")).trim();
+        const slug = slugify(title);
+        writeFileSync(path.join(worksheetsOutDir, `${slug}.md`), text);
+        worksheets.push({ slug, title });
+        ensureWorksheetLink(resourcesPath, title, `#/${daySlug}/worksheets/${slug}`);
+      }
+    }
+  }
+
+  groups.push({ slug: daySlug, label: dayTheme(dayName), topics, worksheets });
 }
 
 writeFileSync(
