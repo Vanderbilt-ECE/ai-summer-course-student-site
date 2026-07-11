@@ -78,7 +78,16 @@
         "hasSlides": true
       }
     ],
-    "worksheets": []
+    "worksheets": [
+      {
+        "slug": "decision-stump-by-hand-worksheet",
+        "title": "Decision Stump by Hand — Worksheet"
+      },
+      {
+        "slug": "titanic-sample-data",
+        "title": "Titanic Sample Data"
+      }
+    ]
   },
   {
     "slug": "day-4",

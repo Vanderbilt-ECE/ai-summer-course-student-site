@@ -19,3 +19,9 @@ The paradigm shift from traditional rule-based programming to machines that impr
 ## Notebooks
 
 - [ ] link notebook(s) here
+
+## Worksheets
+
+- [Titanic Sample Data](#/day-3/worksheets/titanic-sample-data)
+
+- [Decision Stump by Hand — Worksheet](#/day-3/worksheets/decision-stump-by-hand-worksheet)
