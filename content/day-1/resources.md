@@ -30,3 +30,4 @@ A quick welcome and a look at what the next six days cover: the goal is to leave
 - [AI Timeline Cards](https://jonathanjaramillo.github.io/ai-timeline-challenge/practice.html)
 - [AI Tool Scavenger Hunt Worksheet](#/day-1/worksheets/ai-tool-scavenger-hunt-worksheet)
 - [Futures Speculation Workshop Worksheet](#/day-1/worksheets/futures-speculation-workshop-worksheet)
+- [Ethical Dilemma Debates Worksheet](#/day-1/worksheets/ethical-dilemma-debates-worksheet)
