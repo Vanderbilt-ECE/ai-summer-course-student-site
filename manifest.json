@@ -29,7 +29,12 @@
         "hasSlides": true
       }
     ],
-    "worksheets": []
+    "worksheets": [
+      {
+        "slug": "ai-tool-scavenger-hunt-worksheet",
+        "title": "AI Tool Scavenger Hunt Worksheet"
+      }
+    ]
   },
   {
     "slug": "day-2",

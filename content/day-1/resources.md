@@ -22,4 +22,10 @@ A quick welcome and a look at what the next six days cover: the goal is to leave
 
 ## Notebooks
 
-- [ ] link notebook(s) here
+- [AI Timeline Cards](https://jonathanjaramillo.github.io/ai-timeline-challenge/practice.html)
+- [Python Tutorial Notebook](https://drive.google.com/file/d/1AfPGtuwCjKNqGclfst47oSD9aPBxH3qP/view?usp=sharing)
+- [Pandas, Numpy, and Matplotlib Tutorial Notebook](https://drive.google.com/file/d/1jAwGOtIM6V6emaIkAnjQzUUFGJOdcnN9/view?usp=sharing)
+
+## Worksheets
+
+- [AI Tool Scavenger Hunt Worksheet](#/day-1/worksheets/ai-tool-scavenger-hunt-worksheet)
