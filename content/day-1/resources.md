@@ -29,3 +29,4 @@ A quick welcome and a look at what the next six days cover: the goal is to leave
 ## Worksheets
 
 - [AI Tool Scavenger Hunt Worksheet](#/day-1/worksheets/ai-tool-scavenger-hunt-worksheet)
+- [Futures Speculation Workshop Worksheet](#/day-1/worksheets/futures-speculation-workshop-worksheet)
