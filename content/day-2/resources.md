@@ -19,3 +19,7 @@ Why data science sits at the intersection of math/stats, programming, and domain
 ## Worksheets
 
 - [Day 2 Worksheet — Guided Dataset Exploration](#/day-2/worksheets/day-2-worksheet-guided-dataset-exploration)
+
+## Google Slides Link
+
+-[Shared Google Slides](https://docs.google.com/presentation/d/1s0elUYaXSF5LEu3Pk9bJpYCk-xED5rzIxWbIZpjYrXA/edit?usp=sharing)
