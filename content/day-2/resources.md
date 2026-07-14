@@ -22,4 +22,4 @@ Why data science sits at the intersection of math/stats, programming, and domain
 
 ## Google Slides Link
 
--[Shared Google Slides](https://docs.google.com/presentation/d/1s0elUYaXSF5LEu3Pk9bJpYCk-xED5rzIxWbIZpjYrXA/edit?usp=sharing)
+- [Shared Google Slides](https://docs.google.com/presentation/d/1s0elUYaXSF5LEu3Pk9bJpYCk-xED5rzIxWbIZpjYrXA/edit?usp=sharing)
