@@ -29,20 +29,7 @@
         "hasSlides": true
       }
     ],
-    "worksheets": [
-      {
-        "slug": "ai-tool-scavenger-hunt-worksheet",
-        "title": "AI Tool Scavenger Hunt Worksheet"
-      },
-      {
-        "slug": "futures-speculation-workshop-worksheet",
-        "title": "Futures Speculation Workshop Worksheet"
-      },
-      {
-        "slug": "ethical-dilemma-debates-worksheet",
-        "title": "Ethical Dilemma Debates Worksheet"
-      }
-    ]
+    "worksheets": []
   },
   {
     "slug": "day-2",
@@ -51,6 +38,11 @@
       {
         "slug": "data-cleaning-the-other-half",
         "title": "Data Cleaning - The Other Half",
+        "hasSlides": true
+      },
+      {
+        "slug": "regression-bridging-data-to-models",
+        "title": "Regression - Bridging Data to Models",
         "hasSlides": true
       },
       {
@@ -119,6 +111,11 @@
         "slug": "comparing-model-types",
         "title": "Comparing Model Types",
         "hasSlides": true
+      },
+      {
+        "slug": "demos",
+        "title": "Demos",
+        "hasSlides": false
       },
       {
         "slug": "evaluation-beyond-accuracy",

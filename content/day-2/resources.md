@@ -10,7 +10,11 @@ Why data science sits at the intersection of math/stats, programming, and domain
 
 ## Notebooks
 
-- [ ] link notebook(s) here
+- [Titanic Notebook](https://drive.google.com/file/d/1M2HPLMUTFstI8ZWt01aunFRggJx1y-SO/view?usp=sharing)
+- [UC Berkeley Admissions](https://drive.google.com/file/d/1IxCFnMD82o-pTBz5QnEU3hc5fz-f9BzD/view?usp=sharing)
+- [Whickham Smoking Data](https://drive.google.com/file/d/1oMBrZzTjQd2lI4r3CHCSoUZFQ-8TbSeU/view?usp=sharing)
+- [Spotify Data](https://drive.google.com/file/d/1EwX9YlD1nhyGAQ8IIk5HBNI3ouH0IqBr/view?usp=sharing)
+- [Regression on MPG](https://drive.google.com/file/d/13eG8XkvFsC2dumsJVmg3J4rHXHPQbs1B/view?usp=sharing)
 
 ## Worksheets
 

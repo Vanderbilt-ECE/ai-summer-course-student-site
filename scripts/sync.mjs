@@ -89,7 +89,7 @@ for (const { name: dayName, num } of days) {
       console.log(`Building slides: ${dayName} / ${title}`);
       try {
         execSync(
-          `npx slidev build slides.md --base "${BASE}slides/${slug}/" --out "${slidesOut}"`,
+          `PATH=/opt/homebrew/opt/node@20/bin:$PATH node_modules/.bin/slidev build slides.md --base "${BASE}slides/${slug}/" --out "${slidesOut}"`,
           { cwd: topicSrcDir, stdio: "inherit" }
         );
         hasSlides = true;
