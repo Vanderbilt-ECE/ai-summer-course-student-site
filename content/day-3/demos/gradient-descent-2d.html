@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent: 2D Bowl / Contour Explorer</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1220;
+    --panel: #1a1e33;
+    --text: #e8e9f3;
+    --muted: #9aa0c0;
+    --accent: #5eead4;
+    --danger: #f87171;
+    --grid: #2a2f4a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  .layout {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .panel {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  #canvasWrap { position: relative; }
+  canvas { border-radius: 8px; cursor: crosshair; display: block; background: #0b0e1c; }
+  .readout { min-width: 280px; }
+  .readout h2 { font-size: 1rem; margin: 0 0 10px; color: var(--accent); }
+  .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.92rem; border-bottom: 1px solid var(--grid); }
+  .row span:first-child { color: var(--muted); }
+  .status { margin-top: 12px; padding: 10px; border-radius: 8px; background: #232852; font-size: 0.9rem; min-height: 1.2em; }
+  .status.diverged { background: #4a1f2a; color: var(--danger); }
+  .status.converged { background: #1f4a35; color: var(--accent); }
+  .controls { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
+  button, select {
+    background: #2a2f4a;
+    color: var(--text);
+    border: 1px solid #3a4066;
+    border-radius: 6px;
+    padding: 8px 14px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:hover { background: #363c62; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  label { font-size: 0.85rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  input[type=range] { width: 100%; }
+  .lrLabel { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>2D Bowl / Contour Explorer</h1>
+<p class="sub">Click the contour plot to place a starting point, then step through gradient descent.</p>
+
+<div class="layout">
+  <div class="panel" id="canvasWrap">
+    <canvas id="plot" width="520" height="520"></canvas>
+  </div>
+
+  <div class="panel readout">
+    <h2>State</h2>
+    <div class="row"><span>x</span><span id="valX">—</span></div>
+    <div class="row"><span>y</span><span id="valY">—</span></div>
+    <div class="row"><span>Loss L(x, y)</span><span id="valLoss">—</span></div>
+    <div class="row"><span>∂L/∂x</span><span id="valGx">—</span></div>
+    <div class="row"><span>∂L/∂y</span><span id="valGy">—</span></div>
+    <div class="row"><span>Step</span><span id="valStep">0</span></div>
+    <div class="status" id="status">Click the plot to place a starting point.</div>
+
+    <div class="controls">
+      <div>
+        <label for="fnSelect">Loss function</label>
+        <select id="fnSelect">
+          <option value="bowl">Elongated bowl: x² + 3y²</option>
+          <option value="saddle">Saddle: x² − y²</option>
+        </select>
+      </div>
+      <div>
+        <label for="lr">Learning rate: <span class="lrLabel" id="lrLabel">0.10</span></label>
+        <input type="range" id="lr" min="-2" max="0" step="0.01" value="-1">
+      </div>
+      <div class="btnRow">
+        <button id="stepBtn" disabled>Step</button>
+        <button id="playBtn" disabled>Play</button>
+        <button id="resetBtn" disabled>Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('plot');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const RANGE = 5; // x,y in [-5,5]
+  const MAX_STEPS = 200;
+  const CONV_THRESH = 0.001;
+  const DIVERGE_LOSS = 1e6;
+
+  const fns = {
+    bowl:   { a: 1, b: 3, sign: 1, label: 'x² + 3y²' },
+    saddle: { a: 1, b: 1, sign: -1, label: 'x² − y²' },
+  };
+  let fnKey = 'bowl';
+
+  function loss(x, y) {
+    const f = fns[fnKey];
+    return f.a * x * x + f.sign * f.b * y * y;
+  }
+  function grad(x, y) {
+    const f = fns[fnKey];
+    return [2 * f.a * x, 2 * f.sign * f.b * y];
+  }
+
+  // coordinate transforms: data [-5,5] <-> canvas px
+  const toPx = (x, y) => [ (x + RANGE) / (2 * RANGE) * W, H - (y + RANGE) / (2 * RANGE) * H ];
+  const toData = (px, py) => [ px / W * (2 * RANGE) - RANGE, (H - py) / H * (2 * RANGE) - RANGE ];
+
+  let state = null; // {x,y}
+  let path = [];     // list of {x,y}
+  let step = 0;
+  let playing = false;
+  let playTimer = null;
+  let increasingStreak = 0;
+  let converged = false;
+  let diverged = false;
+
+  const lrSlider = document.getElementById('lr');
+  const lrLabel = document.getElementById('lrLabel');
+  const stepBtn = document.getElementById('stepBtn');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const statusEl = document.getElementById('status');
+  const fnSelect = document.getElementById('fnSelect');
+
+  function currentLR() {
+    return Math.pow(10, parseFloat(lrSlider.value)); // log scale: 0.01 .. 1.0
+  }
+  function updateLRLabel() {
+    lrLabel.textContent = currentLR().toFixed(3);
+  }
+
+  function drawContours() {
+    ctx.clearRect(0, 0, W, H);
+    // filled contour bands via loss sampling
+    const img = ctx.createImageData(W, H);
+    let maxL = 0;
+    const f = fns[fnKey];
+    // estimate max loss at corners for normalization
+    maxL = Math.max(Math.abs(loss(RANGE, RANGE)), Math.abs(loss(RANGE, -RANGE))) || 1;
+    for (let py = 0; py < H; py += 2) {
+      for (let px = 0; px < W; px += 2) {
+        const [x, y] = toData(px, py);
+        const l = loss(x, y);
+        const t = Math.max(-1, Math.min(1, l / maxL));
+        let r, g, b;
+        if (fnKey === 'saddle') {
+          // diverging colormap around 0
+          if (t >= 0) { r = 40 + t * 180; g = 50; b = 90 - t * 40; }
+          else { r = 40; g = 50 + (-t) * 140; b = 90 + (-t) * 100; }
+        } else {
+          const u = Math.max(0, Math.min(1, l / maxL));
+          r = 20 + u * 30;
+          g = 30 + (1 - u) * 130;
+          b = 50 + (1 - u) * 140;
+        }
+        for (let dy = 0; dy < 2; dy++) {
+          for (let dx = 0; dx < 2; dx++) {
+            const idx = ((py + dy) * W + (px + dx)) * 4;
+            if (idx < img.data.length - 4) {
+              img.data[idx] = r; img.data[idx+1] = g; img.data[idx+2] = b; img.data[idx+3] = 255;
+            }
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // contour lines
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    const levels = fnKey === 'saddle' ? [-16,-9,-4,-1,1,4,9,16] : [1,4,9,16,25,36,49];
+    for (const lvl of levels) {
+      strokeContour(lvl);
+    }
+
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    const [ox, oy] = toPx(0, 0);
+    ctx.moveTo(ox, 0); ctx.lineTo(ox, H);
+    ctx.moveTo(0, oy); ctx.lineTo(W, oy);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px sans-serif';
+    for (let v = -RANGE; v <= RANGE; v++) {
+      if (v === 0) continue;
+      const [px] = toPx(v, 0);
+      ctx.fillText(v, px - 6, oy + 14);
+      const [, py] = toPx(0, v);
+      ctx.fillText(v, ox + 4, py + 4);
+    }
+
+    // minimum / saddle marker
+    drawStar(ox, oy);
+
+    drawPath();
+    drawPoint();
+  }
+
+  function strokeContour(level) {
+    // marching-squares-lite: sample grid, draw segments where sign of (loss-level) changes
+    const N = 80;
+    const step = W / N;
+    const f = (i, j) => {
+      const [x, y] = toData(i * step, j * step);
+      return loss(x, y) - level;
+    };
+    ctx.beginPath();
+    for (let j = 0; j < N; j++) {
+      for (let i = 0; i < N; i++) {
+        const v00 = f(i, j), v10 = f(i+1, j), v01 = f(i, j+1), v11 = f(i+1, j+1);
+        const corners = [v00, v10, v11, v01];
+        const pts = [];
+        const coords = [[i,j],[i+1,j],[i+1,j+1],[i,j+1]];
+        for (let k = 0; k < 4; k++) {
+          const a = corners[k], b = corners[(k+1)%4];
+          if ((a < 0) !== (b < 0)) {
+            const t = a / (a - b);
+            const [ax, ay] = coords[k], [bx, by] = coords[(k+1)%4];
+            pts.push([ (ax + (bx-ax)*t) * step, (ay + (by-ay)*t) * step ]);
+          }
+        }
+        if (pts.length >= 2) {
+          ctx.moveTo(pts[0][0], pts[0][1]);
+          ctx.lineTo(pts[1][0], pts[1][1]);
+        }
+      }
+    }
+    ctx.stroke();
+  }
+
+  function drawStar(cx, cy) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const spikes = 5, outer = 9, inner = 4;
+    let rot = Math.PI / 2 * 3;
+    let x = 0, y = 0;
+    const step = Math.PI / spikes;
+    ctx.moveTo(0, -outer);
+    for (let i = 0; i < spikes; i++) {
+      x = Math.cos(rot) * outer; y = Math.sin(rot) * outer;
+      ctx.lineTo(x, y); rot += step;
+      x = Math.cos(rot) * inner; y = Math.sin(rot) * inner;
+      ctx.lineTo(x, y); rot += step;
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawPath() {
+    const n = path.length;
+    if (n < 2) return;
+    for (let i = 1; i < n; i++) {
+      const alpha = 0.15 + 0.85 * (i / n); // fade older segments
+      ctx.strokeStyle = `rgba(94, 234, 212, ${alpha})`;
+      ctx.lineWidth = 2;
+      const [x0, y0] = toPx(path[i-1].x, path[i-1].y);
+      const [x1, y1] = toPx(path[i].x, path[i].y);
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+  }
+
+  function drawPoint() {
+    if (!state) return;
+    const [px, py] = toPx(state.x, state.y);
+    ctx.fillStyle = diverged ? '#f87171' : (converged ? '#5eead4' : '#ffffff');
+    ctx.beginPath();
+    ctx.arc(px, py, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function clamp(v) { return Math.max(-RANGE, Math.min(RANGE, v)); }
+
+  function updateReadout() {
+    if (!state) return;
+    const [gx, gy] = grad(state.x, state.y);
+    document.getElementById('valX').textContent = state.x.toFixed(4);
+    document.getElementById('valY').textContent = state.y.toFixed(4);
+    document.getElementById('valLoss').textContent = loss(state.x, state.y).toFixed(4);
+    document.getElementById('valGx').textContent = gx.toFixed(4);
+    document.getElementById('valGy').textContent = gy.toFixed(4);
+    document.getElementById('valStep').textContent = step;
+  }
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function doStep() {
+    if (!state || converged || diverged) return;
+    const lr = currentLR();
+    const [gx, gy] = grad(state.x, state.y);
+    const prevLoss = loss(state.x, state.y);
+    let nx = state.x - lr * gx;
+    let ny = state.y - lr * gy;
+
+    const newLossRaw = loss(nx, ny);
+    const outOfBounds = Math.abs(nx) > RANGE || Math.abs(ny) > RANGE || !isFinite(newLossRaw) || Math.abs(newLossRaw) > DIVERGE_LOSS;
+
+    nx = clamp(nx);
+    ny = clamp(ny);
+
+    path.push({ x: nx, y: ny });
+    state = { x: nx, y: ny };
+    step++;
+
+    const newLoss = loss(nx, ny);
+    if (newLoss > prevLoss) increasingStreak++; else increasingStreak = 0;
+
+    if (outOfBounds || increasingStreak >= 3) {
+      diverged = true;
+      stopPlaying();
+      setStatus(`Diverging — reduce learning rate (stopped at step ${step}).`, 'diverged');
+    } else {
+      const [gx2, gy2] = grad(nx, ny);
+      const mag = Math.hypot(gx2, gy2);
+      if (mag < CONV_THRESH) {
+        converged = true;
+        stopPlaying();
+        setStatus(`Converged in ${step} steps.`, 'converged');
+      } else if (step >= MAX_STEPS) {
+        stopPlaying();
+        setStatus(`Reached max steps (${MAX_STEPS}) without converging.`, 'diverged');
+      } else {
+        setStatus(`Descending… step ${step}.`);
+      }
+    }
+
+    updateReadout();
+    drawContours();
+  }
+
+  function startPlaying() {
+    if (playing || !state) return;
+    playing = true;
+    playBtn.textContent = 'Pause';
+    playTimer = setInterval(() => {
+      if (converged || diverged || step >= MAX_STEPS) { stopPlaying(); return; }
+      doStep();
+    }, 400);
+  }
+  function stopPlaying() {
+    playing = false;
+    playBtn.textContent = 'Play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  function resetPath() {
+    stopPlaying();
+    if (state) {
+      path = [{ x: state.x, y: state.y }];
+    }
+    step = 0;
+    increasingStreak = 0;
+    converged = false;
+    diverged = false;
+    setStatus(state ? 'Ready. Press Step or Play.' : 'Click the plot to place a starting point.');
+    updateReadout();
+    drawContours();
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    const [x, y] = toData(px, py);
+    state = { x: clamp(x), y: clamp(y) };
+    path = [{ x: state.x, y: state.y }];
+    step = 0;
+    increasingStreak = 0;
+    converged = false;
+    diverged = false;
+    stepBtn.disabled = false;
+    playBtn.disabled = false;
+    resetBtn.disabled = false;
+    setStatus('Ready. Press Step or Play.');
+    updateReadout();
+    drawContours();
+  });
+
+  stepBtn.addEventListener('click', doStep);
+  playBtn.addEventListener('click', () => { playing ? stopPlaying() : startPlaying(); });
+  resetBtn.addEventListener('click', resetPath);
+  lrSlider.addEventListener('input', updateLRLabel);
+  fnSelect.addEventListener('change', () => {
+    fnKey = fnSelect.value;
+    resetPath();
+  });
+
+  updateLRLabel();
+  drawContours();
+})();
+</script>
+</body>
+</html>

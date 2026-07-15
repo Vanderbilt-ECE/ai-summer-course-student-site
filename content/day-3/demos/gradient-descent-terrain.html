@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent: Local Minima / Terrain Navigator</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1220; --panel: #1a1e33; --text: #e8e9f3; --muted: #9aa0c0; --grid: #2a2f4a; --accent: #5eead4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; max-width: 820px; }
+  canvas { border-radius: 8px; display: block; background: #0b0e1c; width: 100%; height: auto; cursor: crosshair; }
+  .controls { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  input[type=range] { width: 160px; }
+  .switchField { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+  .btnRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  button { background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px; padding: 8px 14px; font-size: 0.9rem; cursor: pointer; }
+  button:hover { background: #363c62; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .ballList { margin-top: 14px; font-size: 0.85rem; }
+  .ballRow { display: flex; gap: 8px; align-items: center; padding: 3px 0; }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+
+<h1>Local Minima / Terrain Navigator</h1>
+<p class="sub">Click the bumpy curve to drop a ball. Where it starts decides where it ends up — try momentum to see it roll through shallow dips.</p>
+
+<div class="panel">
+  <canvas id="plot" width="760" height="380"></canvas>
+
+  <div class="controls">
+    <div class="switchField">
+      <label><input type="checkbox" id="momentumToggle"> With Momentum</label>
+    </div>
+    <div class="field" id="lrField">
+      <label for="lr">Learning rate: <span id="lrLabel">0.12</span></label>
+      <input type="range" id="lr" min="0.002" max="0.2" step="0.001" value="0.12">
+    </div>
+    <div class="field" id="momField" style="display:none;">
+      <label for="mom">Momentum: <span id="momLabel">0.90</span></label>
+      <input type="range" id="mom" min="0" max="0.9" step="0.01" value="0.9">
+    </div>
+  </div>
+
+  <div class="btnRow">
+    <button id="stepBtn" disabled>Step</button>
+    <button id="playBtn" disabled>Play</button>
+    <button id="clearBtn">Clear All</button>
+  </div>
+
+  <div class="ballList" id="ballList"></div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('plot');
+  const ctx = canvas.getContext('2d');
+  const W = 760, H = 380;
+  const PAD = 40;
+  const W_MIN = -6, W_MAX = 6;
+  const BOUND = 12;
+  const CONV_THRESH = 0.01;
+  const MAX_STEPS = 500;
+  const COLORS = ['#60a5fa', '#fb923c', '#c084fc', '#f472b6', '#4ade80', '#facc15'];
+
+  // tuned so both minima (and the local max between them) sit inside [-6,6], and the
+  // deeper well (global min, w≈3.3) is unambiguously lower than the shallow one (w≈-3.6);
+  // the spec's suggested constants actually put the true global min at w≈7, off-screen.
+  function loss(w) { return 0.03 * w**4 + 0.06 * w**3 - 0.69 * w**2 - 1.72 * w + 54.32; }
+  function grad(w) { return 0.12 * w**3 + 0.18 * w**2 - 1.38 * w - 1.72; }
+
+  // find critical points by scanning derivative sign changes, classify min/max
+  function findExtrema() {
+    const pts = [];
+    const step = 0.001;
+    let prevG = grad(W_MIN);
+    for (let w = W_MIN + step; w <= W_MAX; w += step) {
+      const g = grad(w);
+      if ((prevG < 0) !== (g < 0)) {
+        // refine by bisection
+        let lo = w - step, hi = w;
+        for (let i = 0; i < 40; i++) {
+          const mid = (lo + hi) / 2;
+          if ((grad(lo) < 0) === (grad(mid) < 0)) lo = mid; else hi = mid;
+        }
+        const wc = (lo + hi) / 2;
+        const isMin = prevG < 0 && g >= 0;
+        pts.push({ w: wc, loss: loss(wc), isMin });
+      }
+      prevG = g;
+    }
+    return pts;
+  }
+  const extrema = findExtrema();
+  const minima = extrema.filter(p => p.isMin);
+  const maxima = extrema.filter(p => !p.isMin);
+  const globalMin = minima.reduce((a, b) => (b.loss < a.loss ? b : a), minima[0] || { w: 0, loss: loss(0) });
+
+  function lossBounds() {
+    let minL = Infinity, maxL = -Infinity;
+    for (let w = W_MIN; w <= W_MAX; w += 0.02) {
+      const l = loss(w);
+      if (l < minL) minL = l;
+      if (l > maxL) maxL = l;
+    }
+    return [minL, maxL];
+  }
+  const [minL, maxL] = lossBounds();
+  const lPad = (maxL - minL) * 0.12;
+
+  function toPx(w, l) {
+    const x = PAD + (w - W_MIN) / (W_MAX - W_MIN) * (W - 2 * PAD);
+    const y = H - PAD - (l - (minL - lPad)) / (maxL + lPad - (minL - lPad)) * (H - 2 * PAD);
+    return [x, y];
+  }
+  function pxToW(px) { return (px - PAD) / (W - 2 * PAD) * (W_MAX - W_MIN) + W_MIN; }
+
+  let balls = [];
+  let nextColor = 0;
+  let playing = false;
+  let playTimer = null;
+
+  const lrSlider = document.getElementById('lr');
+  const lrLabel = document.getElementById('lrLabel');
+  const momSlider = document.getElementById('mom');
+  const momLabel = document.getElementById('momLabel');
+  const momentumToggle = document.getElementById('momentumToggle');
+  const momField = document.getElementById('momField');
+  const stepBtn = document.getElementById('stepBtn');
+  const playBtn = document.getElementById('playBtn');
+  const clearBtn = document.getElementById('clearBtn');
+
+  function currentLR() { return parseFloat(lrSlider.value); }
+  function currentMom() { return parseFloat(momSlider.value); }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    for (let wv = Math.ceil(W_MIN); wv <= W_MAX; wv += 2) {
+      const [px] = toPx(wv, minL);
+      ctx.beginPath(); ctx.moveTo(px, PAD); ctx.lineTo(px, H - PAD); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px sans-serif';
+    for (let wv = Math.ceil(W_MIN); wv <= W_MAX; wv += 2) {
+      const [px] = toPx(wv, minL - lPad);
+      ctx.fillText(wv, px - 4, H - PAD + 16);
+    }
+
+    // curve
+    ctx.strokeStyle = '#e8e9f3';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let w = W_MIN; w <= W_MAX; w += 0.02) {
+      const [px, py] = toPx(w, loss(w));
+      if (w === W_MIN) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // local minima (gray dots) & global min (gold star)
+    for (const m of minima) {
+      const [px, py] = toPx(m.w, m.loss);
+      if (Math.abs(m.w - globalMin.w) < 1e-6) {
+        drawStar(px, py);
+      } else {
+        ctx.fillStyle = '#9aa0c0';
+        ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    // trails
+    for (const b of balls) {
+      ctx.strokeStyle = b.color + '90';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < b.path.length; i++) {
+        const [px, py] = toPx(b.path[i], loss(b.path[i]));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    // balls + labels
+    ctx.font = '11px sans-serif';
+    for (const b of balls) {
+      const wc = Math.max(-BOUND, Math.min(BOUND, b.w));
+      const lc = Math.max(-BOUND, Math.min(BOUND, wc));
+      const [px, py] = toPx(Math.max(W_MIN, Math.min(W_MAX, wc)), loss(lc));
+      ctx.fillStyle = b.color;
+      ctx.beginPath(); ctx.arc(px, py, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+      if (b.label) {
+        ctx.fillStyle = b.color;
+        ctx.fillText(b.label, px + 10, py - 10);
+      }
+    }
+  }
+
+  function drawStar(cx, cy) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const spikes = 5, outer = 9, inner = 4;
+    let rot = Math.PI / 2 * 3;
+    const step = Math.PI / spikes;
+    ctx.moveTo(0, -outer);
+    for (let i = 0; i < spikes; i++) {
+      let x = Math.cos(rot) * outer, y = Math.sin(rot) * outer;
+      ctx.lineTo(x, y); rot += step;
+      x = Math.cos(rot) * inner; y = Math.sin(rot) * inner;
+      ctx.lineTo(x, y); rot += step;
+    }
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  function classifySettled(w) {
+    const nearestMin = minima.reduce((a, b) => (Math.abs(b.w - w) < Math.abs(a.w - w) ? b : a), minima[0]);
+    const nearestMax = maxima.length ? maxima.reduce((a, b) => (Math.abs(b.w - w) < Math.abs(a.w - w) ? b : a), maxima[0]) : null;
+    if (nearestMin && Math.abs(nearestMin.w - w) < 0.3) {
+      return Math.abs(nearestMin.w - globalMin.w) < 1e-6 ? 'Found global min' : 'Stuck in local min';
+    }
+    if (nearestMax && Math.abs(nearestMax.w - w) < 0.3) {
+      return 'Balanced on local max (unstable)';
+    }
+    return 'Stalled';
+  }
+
+  function updateBallList() {
+    const list = document.getElementById('ballList');
+    list.innerHTML = '';
+    balls.forEach((b, i) => {
+      const div = document.createElement('div');
+      div.className = 'ballRow';
+      div.innerHTML = `<span class="swatch" style="background:${b.color}"></span> Ball ${i + 1}: w=${b.w.toFixed(3)}, loss=${loss(b.w).toFixed(3)}, step ${b.step}${b.label ? ' — ' + b.label : ''}`;
+      list.appendChild(div);
+    });
+  }
+
+  function stepBall(b) {
+    if (b.done) return;
+    const lr = currentLR();
+    const g = grad(b.w);
+
+    if (momentumToggle.checked) {
+      const mom = currentMom();
+      b.velocity = mom * b.velocity - lr * g;
+      b.w = b.w + b.velocity;
+    } else {
+      b.w = b.w - lr * g;
+    }
+    b.step++;
+    b.path.push(b.w);
+
+    if (!isFinite(b.w) || Math.abs(b.w) > BOUND) {
+      b.done = true;
+      b.label = 'Diverged';
+      return;
+    }
+
+    const gNow = grad(b.w);
+    const settled = Math.abs(gNow) < CONV_THRESH && Math.abs(b.velocity || 0) < CONV_THRESH;
+    if (settled) {
+      b.idleStreak = (b.idleStreak || 0) + 1;
+      if (b.idleStreak >= 3) {
+        b.done = true;
+        b.label = classifySettled(b.w);
+      }
+    } else {
+      b.idleStreak = 0;
+    }
+    if (!b.done && b.step >= MAX_STEPS) {
+      b.done = true;
+      b.label = b.label || 'Did not settle in time';
+    }
+  }
+
+  function doStep() {
+    let anyActive = false;
+    for (const b of balls) {
+      stepBall(b);
+      if (!b.done) anyActive = true;
+    }
+    updateBallList();
+    draw();
+    if (!anyActive) stopPlaying();
+  }
+
+  function startPlaying() {
+    if (playing || balls.length === 0) return;
+    playing = true;
+    playBtn.textContent = 'Pause';
+    const interval = momentumToggle.checked ? 220 : 150;
+    playTimer = setInterval(doStep, interval);
+  }
+  function stopPlaying() {
+    playing = false;
+    playBtn.textContent = 'Play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  function addBall(w) {
+    const color = COLORS[nextColor % COLORS.length];
+    nextColor++;
+    balls.push({ w, velocity: 0, step: 0, path: [w], color, done: false, label: null, idleStreak: 0 });
+    stepBtn.disabled = false;
+    playBtn.disabled = false;
+    updateBallList();
+    draw();
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const w = Math.max(W_MIN, Math.min(W_MAX, pxToW(px)));
+    addBall(w);
+  });
+
+  stepBtn.addEventListener('click', doStep);
+  playBtn.addEventListener('click', () => { playing ? stopPlaying() : startPlaying(); });
+  clearBtn.addEventListener('click', () => {
+    stopPlaying();
+    balls = [];
+    nextColor = 0;
+    stepBtn.disabled = true;
+    playBtn.disabled = true;
+    updateBallList();
+    draw();
+  });
+
+  lrSlider.addEventListener('input', () => { lrLabel.textContent = currentLR().toFixed(3); });
+  momSlider.addEventListener('input', () => { momLabel.textContent = currentMom().toFixed(2); });
+  momentumToggle.addEventListener('change', () => {
+    momField.style.display = momentumToggle.checked ? 'flex' : 'none';
+  });
+
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent: Linear Regression Fit-Live</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1220;
+    --panel: #1a1e33;
+    --text: #e8e9f3;
+    --muted: #9aa0c0;
+    --accent: #5eead4;
+    --danger: #f87171;
+    --grid: #2a2f4a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  .plots { display: flex; gap: 20px; flex-wrap: wrap; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; }
+  .plotPanel { flex: 1 1 380px; max-width: 460px; }
+  .plotPanel h2 { font-size: 0.95rem; margin: 0 0 10px; color: var(--accent); }
+  canvas { border-radius: 8px; display: block; background: #0b0e1c; width: 100%; height: auto; cursor: crosshair; }
+
+  .bottom { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 20px; }
+  .readout { flex: 1 1 260px; }
+  .readout h2 { font-size: 1rem; margin: 0 0 10px; color: var(--accent); }
+  .row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.92rem; border-bottom: 1px solid var(--grid); }
+  .row span:first-child { color: var(--muted); }
+  .status { margin-top: 12px; padding: 10px; border-radius: 8px; background: #232852; font-size: 0.9rem; min-height: 1.2em; }
+  .status.diverged { background: #4a1f2a; color: var(--danger); }
+  .status.converged { background: #1f4a35; color: var(--accent); }
+
+  .controls { flex: 1 1 300px; display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  .lrLabel { color: var(--text); font-weight: 600; }
+  input[type=range] { width: 100%; }
+  .btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px;
+    padding: 8px 14px; font-size: 0.9rem; cursor: pointer;
+  }
+  button:hover { background: #363c62; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .checkField { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Linear Regression Fit-Live</h1>
+<p class="sub">Fit y = m·x + b to noisy data using gradient descent on the mean squared error.</p>
+
+<div class="plots">
+  <div class="panel plotPanel">
+    <h2>Data space</h2>
+    <canvas id="dataPlot" width="440" height="440"></canvas>
+  </div>
+  <div class="panel plotPanel">
+    <h2>Parameter space — loss L(m, c)</h2>
+    <p class="sub" style="margin:0 0 10px;">c is the line's value at x = x̄ (mean x), not the y-intercept — this decorrelates m and c so the bowl isn't a tilted trough. The data panel still shows the usual b.</p>
+    <canvas id="paramPlot" width="440" height="440"></canvas>
+  </div>
+</div>
+
+<div class="bottom">
+  <div class="panel readout">
+    <h2>Readout</h2>
+    <div class="row"><span>m (slope)</span><span id="valM">—</span></div>
+    <div class="row"><span>b (intercept)</span><span id="valB">—</span></div>
+    <div class="row"><span>MSE loss</span><span id="valLoss">—</span></div>
+    <div class="row"><span>True m, b</span><span id="valTrue">m=2, b=1</span></div>
+    <div class="row"><span>Step</span><span id="valStep">0</span></div>
+    <div class="status" id="status">Click the parameter-space plot to place a starting (m, b).</div>
+  </div>
+
+  <div class="panel controls">
+    <div class="field">
+      <label for="lr">Learning rate: <span class="lrLabel" id="lrLabel">0.0158</span></label>
+      <input type="range" id="lr" min="-3.3" max="-1" step="0.01" value="-1.8">
+    </div>
+    <div class="field">
+      <label for="mStart">Starting m: <span id="mStartLabel">0.00</span></label>
+      <input type="range" id="mStart" min="-2" max="6" step="0.05" value="0">
+    </div>
+    <div class="field">
+      <label for="bStart">Starting b: <span id="bStartLabel">0.00</span></label>
+      <input type="range" id="bStart" min="-6" max="8" step="0.05" value="0">
+    </div>
+    <label class="checkField"><input type="checkbox" id="showTrue" checked> Overlay true line (dashed)</label>
+    <div class="btnRow">
+      <button id="stepBtn" disabled>Step</button>
+      <button id="playBtn" disabled>Play</button>
+      <button id="resetBtn" disabled>Reset</button>
+      <button id="regenBtn">Regenerate data</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const dataCanvas = document.getElementById('dataPlot');
+  const dctx = dataCanvas.getContext('2d');
+  const paramCanvas = document.getElementById('paramPlot');
+  const pctx = paramCanvas.getContext('2d');
+  const W = 440, H = 440;
+
+  const TRUE_M = 2, TRUE_B = 1;
+  const N_POINTS = 25;
+  const NOISE_STD = 1.5;
+  const X_MIN = 0, X_MAX = 10;
+  const M_MIN = -2, M_MAX = 6;
+  const B_MIN = -6, B_MAX = 8;
+  const MAX_STEPS = 1500;
+  const CONV_THRESH = 0.005;
+  const DIVERGE_LOSS = 1e7;
+
+  let points = []; // {x,y}
+  let bgCanvas = null; // cached contour background for param plot
+
+  // ponytail: with x in [0,10], m and b (intercept at x=0) are strongly correlated —
+  // the loss surface in (m,b) is a *tilted* ellipse, not just an elongated one, so vanilla
+  // GD shoots into the tilted trough fast then crawls along its long diagonal axis forever.
+  // Optimizing/plotting the intercept at x̄ instead of x=0 (c = b + m·x̄) makes the two axes
+  // uncorrelated (upright bowl, no tilt); a small curvature-ratio scale on top makes it near
+  // circular too. b is still recovered for the data-space line and readout via b = c - m·x̄.
+  let xMean = 5, cPrecond = 1;
+  let C_MIN = 1, C_MAX = 21;
+
+  function gaussian() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function generateData() {
+    points = [];
+    for (let i = 0; i < N_POINTS; i++) {
+      const x = X_MIN + (X_MAX - X_MIN) * (i + 0.5) / N_POINTS + (Math.random() - 0.5) * 0.3;
+      const y = TRUE_M * x + TRUE_B + gaussian() * NOISE_STD;
+      points.push({ x, y });
+    }
+    xMean = points.reduce((s, p) => s + p.x, 0) / points.length;
+    cPrecond = points.reduce((s, p) => s + (p.x - xMean) * (p.x - xMean), 0) / points.length;
+    const cTrue = TRUE_M * xMean + TRUE_B;
+    C_MIN = cTrue - 9; C_MAX = cTrue + 9;
+  }
+
+  function bFromC(mVal, cVal) { return cVal - mVal * xMean; }
+  function cFromB(mVal, bVal) { return bVal + mVal * xMean; }
+
+  function mse(mVal, bVal) {
+    let s = 0;
+    for (const p of points) {
+      const e = p.y - (mVal * p.x + bVal);
+      s += e * e;
+    }
+    return s / points.length;
+  }
+  // loss/gradient parameterized by (m, c) where c is the intercept at x̄
+  function lossMC(mVal, cVal) { return mse(mVal, bFromC(mVal, cVal)); }
+  function gradMC(mVal, cVal) {
+    let gm = 0, gc = 0;
+    const n = points.length;
+    for (const p of points) {
+      const err = p.y - (mVal * (p.x - xMean) + cVal);
+      gm += (p.x - xMean) * err;
+      gc += err;
+    }
+    return [(-2 / n) * gm, (-2 / n) * gc];
+  }
+
+  // ---------- data-space (left) plot ----------
+  let yMin = -2, yMax = 22;
+  function computeYBounds() {
+    let lo = Infinity, hi = -Infinity;
+    for (const p of points) { lo = Math.min(lo, p.y); hi = Math.max(hi, p.y); }
+    const pad = (hi - lo) * 0.15 || 2;
+    yMin = lo - pad; yMax = hi + pad;
+  }
+  function dataToPx(x, y) {
+    const px = (x - X_MIN) / (X_MAX - X_MIN) * (W - 60) + 45;
+    const py = H - 35 - (y - yMin) / (yMax - yMin) * (H - 60);
+    return [px, py];
+  }
+
+  function drawDataPlot(m, b) {
+    dctx.clearRect(0, 0, W, H);
+    dctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    dctx.fillStyle = 'rgba(255,255,255,0.5)';
+    dctx.font = '11px sans-serif';
+    dctx.lineWidth = 1;
+    // axes
+    const [ox, oy0] = dataToPx(X_MIN, yMin);
+    dctx.beginPath();
+    dctx.moveTo(45, 10); dctx.lineTo(45, H - 35); dctx.lineTo(W - 15, H - 35);
+    dctx.stroke();
+    for (let xv = 0; xv <= X_MAX; xv += 2) {
+      const [px, py] = dataToPx(xv, yMin);
+      dctx.fillText(xv, px - 4, H - 20);
+    }
+    for (let yv = Math.ceil(yMin / 5) * 5; yv <= yMax; yv += 5) {
+      const [px, py] = dataToPx(X_MIN, yv);
+      dctx.fillText(yv, 8, py + 4);
+    }
+
+    // scatter
+    dctx.fillStyle = '#9aa0c0';
+    for (const p of points) {
+      const [px, py] = dataToPx(p.x, p.y);
+      dctx.beginPath();
+      dctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      dctx.fill();
+    }
+
+    // true line (dashed)
+    if (document.getElementById('showTrue').checked) {
+      dctx.strokeStyle = 'rgba(250, 204, 21, 0.8)';
+      dctx.setLineDash([6, 5]);
+      dctx.lineWidth = 2;
+      dctx.beginPath();
+      const [x0, y0] = dataToPx(X_MIN, TRUE_M * X_MIN + TRUE_B);
+      const [x1, y1] = dataToPx(X_MAX, TRUE_M * X_MAX + TRUE_B);
+      dctx.moveTo(x0, y0); dctx.lineTo(x1, y1);
+      dctx.stroke();
+      dctx.setLineDash([]);
+    }
+
+    // fitted line
+    dctx.strokeStyle = diverged ? '#f87171' : (converged ? '#5eead4' : '#ffffff');
+    dctx.lineWidth = 2.5;
+    dctx.beginPath();
+    const [fx0, fy0] = dataToPx(X_MIN, m * X_MIN + b);
+    const [fx1, fy1] = dataToPx(X_MAX, m * X_MAX + b);
+    dctx.moveTo(fx0, fy0); dctx.lineTo(fx1, fy1);
+    dctx.stroke();
+  }
+
+  // ---------- parameter-space (right) plot — axes are (m, c) ----------
+  function paramToPx(mVal, cVal) {
+    const px = (mVal - M_MIN) / (M_MAX - M_MIN) * W;
+    const py = H - (cVal - C_MIN) / (C_MAX - C_MIN) * H;
+    return [px, py];
+  }
+  function pxToParam(px, py) {
+    const mVal = px / W * (M_MAX - M_MIN) + M_MIN;
+    const cVal = (H - py) / H * (C_MAX - C_MIN) + C_MIN;
+    return [mVal, cVal];
+  }
+
+  function buildParamBackground() {
+    bgCanvas = document.createElement('canvas');
+    bgCanvas.width = W; bgCanvas.height = H;
+    const bctx = bgCanvas.getContext('2d');
+
+    const N = 70;
+    const grid = new Float64Array((N + 1) * (N + 1));
+    let minL = Infinity, maxL = -Infinity;
+    for (let j = 0; j <= N; j++) {
+      for (let i = 0; i <= N; i++) {
+        const mVal = M_MIN + (M_MAX - M_MIN) * i / N;
+        const cVal = C_MIN + (C_MAX - C_MIN) * (1 - j / N);
+        const l = lossMC(mVal, cVal);
+        grid[j * (N + 1) + i] = l;
+        if (l < minL) minL = l;
+        if (l > maxL) maxL = l;
+      }
+    }
+
+    const img = bctx.createImageData(W, H);
+    for (let py = 0; py < H; py++) {
+      const j = Math.min(N, Math.floor(py / H * N));
+      for (let px = 0; px < W; px++) {
+        const i = Math.min(N, Math.floor(px / W * N));
+        const l = grid[j * (N + 1) + i];
+        // log-ish normalization since MSE bowl is steep
+        const t = Math.max(0, Math.min(1, Math.log1p(l - minL) / Math.log1p(maxL - minL)));
+        const r = 20 + t * 30, g = 30 + (1 - t) * 130, b2 = 50 + (1 - t) * 140;
+        const idx = (py * W + px) * 4;
+        img.data[idx] = r; img.data[idx+1] = g; img.data[idx+2] = b2; img.data[idx+3] = 255;
+      }
+    }
+    bctx.putImageData(img, 0, 0);
+
+    // contour lines at log-spaced levels
+    bctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    bctx.lineWidth = 1;
+    const levels = [0.02, 0.05, 0.1, 0.2, 0.35, 0.55, 0.8].map(f => minL + f * (maxL - minL));
+    const cell = W / N;
+    for (const lvl of levels) {
+      bctx.beginPath();
+      for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+          const v00 = grid[j*(N+1)+i] - lvl, v10 = grid[j*(N+1)+i+1] - lvl;
+          const v11 = grid[(j+1)*(N+1)+i+1] - lvl, v01 = grid[(j+1)*(N+1)+i] - lvl;
+          const corners = [v00, v10, v11, v01];
+          const coords = [[i,j],[i+1,j],[i+1,j+1],[i,j+1]];
+          const pts = [];
+          for (let k = 0; k < 4; k++) {
+            const a = corners[k], b3 = corners[(k+1)%4];
+            if ((a < 0) !== (b3 < 0)) {
+              const t = a / (a - b3);
+              const [ax, ay] = coords[k], [bx, by] = coords[(k+1)%4];
+              pts.push([(ax + (bx-ax)*t) * cell, (ay + (by-ay)*t) * cell]);
+            }
+          }
+          if (pts.length >= 2) { bctx.moveTo(pts[0][0], pts[0][1]); bctx.lineTo(pts[1][0], pts[1][1]); }
+        }
+      }
+      bctx.stroke();
+    }
+
+    // axes + labels
+    bctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    const [ox, oy] = paramToPx(0, 0);
+    bctx.beginPath();
+    if (ox >= 0 && ox <= W) { bctx.moveTo(ox, 0); bctx.lineTo(ox, H); }
+    if (oy >= 0 && oy <= H) { bctx.moveTo(0, oy); bctx.lineTo(W, oy); }
+    bctx.stroke();
+    bctx.fillStyle = 'rgba(255,255,255,0.6)';
+    bctx.font = '11px sans-serif';
+    for (let mv = Math.ceil(M_MIN); mv <= M_MAX; mv++) {
+      const [px] = paramToPx(mv, C_MIN);
+      bctx.fillText('m=' + mv, px - 10, H - 4);
+    }
+    for (let cv = Math.ceil(C_MIN / 2) * 2; cv <= C_MAX; cv += 2) {
+      const [, py] = paramToPx(M_MIN, cv);
+      bctx.fillText('c=' + cv, 2, py + 4);
+    }
+
+    // true (m, c) star
+    drawStar(bctx, ...paramToPx(TRUE_M, cFromB(TRUE_M, TRUE_B)));
+  }
+
+  function drawStar(c, cx, cy) {
+    c.save();
+    c.translate(cx, cy);
+    c.fillStyle = '#facc15';
+    c.strokeStyle = '#78350f';
+    c.lineWidth = 1;
+    c.beginPath();
+    const spikes = 5, outer = 9, inner = 4;
+    let rot = Math.PI / 2 * 3;
+    const step = Math.PI / spikes;
+    c.moveTo(0, -outer);
+    for (let i = 0; i < spikes; i++) {
+      let x = Math.cos(rot) * outer, y = Math.sin(rot) * outer;
+      c.lineTo(x, y); rot += step;
+      x = Math.cos(rot) * inner; y = Math.sin(rot) * inner;
+      c.lineTo(x, y); rot += step;
+    }
+    c.closePath();
+    c.fill(); c.stroke();
+    c.restore();
+  }
+
+  function drawParamPlot(mVal, cVal) {
+    pctx.clearRect(0, 0, W, H);
+    pctx.drawImage(bgCanvas, 0, 0);
+
+    // path
+    const n = path.length;
+    for (let i = 1; i < n; i++) {
+      const alpha = 0.15 + 0.85 * (i / n);
+      pctx.strokeStyle = `rgba(94, 234, 212, ${alpha})`;
+      pctx.lineWidth = 2;
+      const [x0, y0] = paramToPx(path[i-1].m, path[i-1].c);
+      const [x1, y1] = paramToPx(path[i].m, path[i].c);
+      pctx.beginPath(); pctx.moveTo(x0, y0); pctx.lineTo(x1, y1); pctx.stroke();
+    }
+
+    // current point (animated position)
+    const [px, py] = paramToPx(mVal, cVal);
+    pctx.fillStyle = diverged ? '#f87171' : (converged ? '#5eead4' : '#ffffff');
+    pctx.beginPath();
+    pctx.arc(px, py, 6, 0, Math.PI * 2);
+    pctx.fill();
+    pctx.strokeStyle = '#000';
+    pctx.lineWidth = 1;
+    pctx.stroke();
+  }
+
+  // ---------- state ----------
+  // m, c are the optimized parameters (c = intercept at x̄); b is derived for display.
+  let m = 0, c = 0;
+  let dispM = 0, dispC = 0; // animated display values
+  let path = [];
+  let step = 0;
+  let playing = false;
+  let playTimer = null;
+  let animId = null;
+  let increasingStreak = 0;
+  let converged = false;
+  let diverged = false;
+  let started = false;
+
+  const lrSlider = document.getElementById('lr');
+  const lrLabel = document.getElementById('lrLabel');
+  const mStartSlider = document.getElementById('mStart');
+  const bStartSlider = document.getElementById('bStart');
+  const mStartLabel = document.getElementById('mStartLabel');
+  const bStartLabel = document.getElementById('bStartLabel');
+  const stepBtn = document.getElementById('stepBtn');
+  const playBtn = document.getElementById('playBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const regenBtn = document.getElementById('regenBtn');
+  const showTrueBox = document.getElementById('showTrue');
+  const statusEl = document.getElementById('status');
+
+  function currentLR() { return Math.pow(10, parseFloat(lrSlider.value)); }
+  function updateLRLabel() { lrLabel.textContent = currentLR().toFixed(4); }
+
+  function clampM(v) { return Math.max(M_MIN, Math.min(M_MAX, v)); }
+  function clampC(v) { return Math.max(C_MIN, Math.min(C_MAX, v)); }
+
+  function redrawAll() {
+    drawDataPlot(dispM, bFromC(dispM, dispC));
+    drawParamPlot(dispM, dispC);
+  }
+
+  function updateReadout() {
+    const bVal = bFromC(m, c);
+    document.getElementById('valM').textContent = m.toFixed(4);
+    document.getElementById('valB').textContent = bVal.toFixed(4);
+    document.getElementById('valLoss').textContent = lossMC(m, c).toFixed(4);
+    document.getElementById('valTrue').textContent = `m=${TRUE_M}, b=${TRUE_B}`;
+    document.getElementById('valStep').textContent = step;
+  }
+
+  function setStatus(text, cls) {
+    statusEl.textContent = text;
+    statusEl.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function animateTo(fromM, fromC, toM, toC, onDone) {
+    if (animId) cancelAnimationFrame(animId);
+    const start = performance.now();
+    const dur = 150;
+    function frame(now) {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      dispM = fromM + (toM - fromM) * eased;
+      dispC = fromC + (toC - fromC) * eased;
+      redrawAll();
+      if (t < 1) {
+        animId = requestAnimationFrame(frame);
+      } else {
+        animId = null;
+        dispM = toM; dispC = toC;
+        redrawAll();
+        if (onDone) onDone();
+      }
+    }
+    animId = requestAnimationFrame(frame);
+  }
+
+  function doStep() {
+    if (!started || converged || diverged) return;
+    const lr = currentLR();
+    const [gm, gc] = gradMC(m, c);
+    const prevLoss = lossMC(m, c);
+    let nm = m - lr * gm;
+    let nc = c - lr * cPrecond * gc;
+
+    const rawLoss = lossMC(nm, nc);
+    const nb = bFromC(nm, nc);
+    const outOfBounds = Math.abs(nm) > M_MAX * 3 || Math.abs(nb) > B_MAX * 3 || !isFinite(rawLoss) || rawLoss > DIVERGE_LOSS;
+
+    nm = clampM(nm); nc = clampC(nc);
+
+    const animFrom = { m: dispM, c: dispC };
+    m = nm; c = nc;
+    step++;
+    path.push({ m, c });
+
+    const newLoss = lossMC(m, c);
+    if (newLoss > prevLoss) increasingStreak++; else increasingStreak = 0;
+
+    // Decide convergence/divergence synchronously, right after the real (m, c) update —
+    // not inside the animation's onDone. animateTo cancels any in-flight animation on each
+    // call, so under rapid clicks or a fast Play tick the previous callback would never fire
+    // and these checks would silently get skipped for every step but the last.
+    let statusText, statusCls;
+    if (outOfBounds || increasingStreak >= 3) {
+      diverged = true;
+      stopPlaying();
+      statusText = `Diverging — reduce learning rate (stopped at step ${step}).`;
+      statusCls = 'diverged';
+    } else {
+      const [gm2, gc2] = gradMC(m, c);
+      const mag = Math.hypot(gm2, cPrecond * gc2);
+      if (mag < CONV_THRESH) {
+        converged = true;
+        stopPlaying();
+        statusText = `Converged in ${step} steps.`;
+        statusCls = 'converged';
+      } else if (step >= MAX_STEPS) {
+        stopPlaying();
+        statusText = `Reached max steps (${MAX_STEPS}) without converging.`;
+        statusCls = 'diverged';
+      } else {
+        statusText = `Descending… step ${step}.`;
+        statusCls = undefined;
+      }
+    }
+
+    updateReadout();
+    setStatus(statusText, statusCls);
+    animateTo(animFrom.m, animFrom.c, m, c, redrawAll);
+  }
+
+  function startPlaying() {
+    if (playing || !started) return;
+    playing = true;
+    playBtn.textContent = 'Pause';
+    playTimer = setInterval(() => {
+      if (converged || diverged || step >= MAX_STEPS) { stopPlaying(); return; }
+      doStep();
+    }, 120);
+  }
+  function stopPlaying() {
+    playing = false;
+    playBtn.textContent = 'Play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  function resetRun() {
+    stopPlaying();
+    if (animId) cancelAnimationFrame(animId);
+    if (started) path = [{ m, c }];
+    step = 0;
+    increasingStreak = 0;
+    converged = false;
+    diverged = false;
+    dispM = m; dispC = c;
+    setStatus(started ? 'Ready. Press Step or Play.' : 'Click the parameter-space plot to place a starting (m, b).');
+    updateReadout();
+    redrawAll();
+  }
+
+  // canonical setter: (m, c) is the actual optimized state
+  function setStartMC(nm, nc) {
+    m = clampM(nm); c = clampC(nc);
+    dispM = m; dispC = c;
+    path = [{ m, c }];
+    step = 0;
+    increasingStreak = 0;
+    converged = false;
+    diverged = false;
+    started = true;
+    stepBtn.disabled = false;
+    playBtn.disabled = false;
+    resetBtn.disabled = false;
+    setStatus('Ready. Press Step or Play.');
+    updateReadout();
+    redrawAll();
+  }
+
+  // convenience for the m/b sliders, which speak the usual y-intercept
+  function setStart(nm, nb) {
+    setStartMC(nm, cFromB(nm, nb));
+  }
+
+  let dragging = false;
+
+  function pointerToParam(e) {
+    const rect = paramCanvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    return pxToParam(px, py); // returns [m, c] — the plot's own axes
+  }
+
+  function dragTo(nm, nc) {
+    // snap the point (and the fitted line) straight to the pointer, no easing,
+    // so the line tracks the mouse smoothly instead of chasing it
+    if (animId) { cancelAnimationFrame(animId); animId = null; }
+    const nb = bFromC(nm, nc);
+    mStartSlider.value = clampM(nm).toFixed(2);
+    bStartSlider.value = nb.toFixed(2);
+    mStartLabel.textContent = mStartSlider.value;
+    bStartLabel.textContent = bStartSlider.value;
+    setStartMC(nm, nc);
+  }
+
+  paramCanvas.addEventListener('mousedown', (e) => {
+    dragging = true;
+    const [nm, nc] = pointerToParam(e);
+    dragTo(nm, nc);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const [nm, nc] = pointerToParam(e);
+    dragTo(nm, nc);
+  });
+  window.addEventListener('mouseup', () => { dragging = false; });
+
+  stepBtn.addEventListener('click', doStep);
+  playBtn.addEventListener('click', () => { playing ? stopPlaying() : startPlaying(); });
+  resetBtn.addEventListener('click', resetRun);
+  lrSlider.addEventListener('input', updateLRLabel);
+  showTrueBox.addEventListener('change', redrawAll);
+
+  mStartSlider.addEventListener('input', () => {
+    mStartLabel.textContent = parseFloat(mStartSlider.value).toFixed(2);
+    if (!started || path.length <= 1) setStart(parseFloat(mStartSlider.value), parseFloat(bStartSlider.value));
+  });
+  bStartSlider.addEventListener('input', () => {
+    bStartLabel.textContent = parseFloat(bStartSlider.value).toFixed(2);
+    if (!started || path.length <= 1) setStart(parseFloat(mStartSlider.value), parseFloat(bStartSlider.value));
+  });
+
+  regenBtn.addEventListener('click', () => {
+    generateData();
+    computeYBounds();
+    buildParamBackground();
+    stopPlaying();
+    if (animId) cancelAnimationFrame(animId);
+    started = false;
+    path = [];
+    step = 0;
+    converged = false;
+    diverged = false;
+    stepBtn.disabled = true;
+    playBtn.disabled = true;
+    resetBtn.disabled = true;
+    setStatus('Click the parameter-space plot to place a starting (m, b).');
+    document.getElementById('valLoss').textContent = '—';
+    document.getElementById('valM').textContent = '—';
+    document.getElementById('valB').textContent = '—';
+    document.getElementById('valStep').textContent = '0';
+    document.getElementById('valTrue').textContent = `m=${TRUE_M}, b=${TRUE_B}`;
+    redrawAll();
+  });
+
+  updateLRLabel();
+  generateData();
+  computeYBounds();
+  buildParamBackground();
+  redrawAll();
+})();
+</script>
+</body>
+</html>

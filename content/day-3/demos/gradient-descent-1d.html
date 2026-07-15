@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent: Single-Parameter Curve Walker</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1220;
+    --panel: #1a1e33;
+    --text: #e8e9f3;
+    --muted: #9aa0c0;
+    --accent: #5eead4;
+    --danger: #f87171;
+    --warn: #facc15;
+    --grid: #2a2f4a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+  }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  .layout { display: flex; flex-direction: column; gap: 20px; max-width: 720px; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; }
+  canvas { border-radius: 8px; display: block; background: #0b0e1c; width: 100%; height: auto; }
+
+  .breakdown { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 0.92rem; }
+  .breakdown h2 { font-family: -apple-system, sans-serif; font-size: 1rem; margin: 0 0 10px; color: var(--accent); }
+  .brow {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 8px; border-bottom: 1px solid var(--grid); border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+  .brow .k { color: var(--muted); }
+  .brow .v { text-align: right; }
+  .brow.flash { background-color: rgba(94, 234, 212, 0.25); }
+
+  .note {
+    margin-top: 12px; padding: 10px; border-radius: 8px;
+    background: #4a3a1f; color: var(--warn); font-size: 0.88rem;
+    font-family: -apple-system, sans-serif; display: none;
+  }
+  .note.show { display: block; }
+
+  .controls { display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  .lrLabel, .wLabel { color: var(--text); font-weight: 600; }
+  input[type=range], input[type=number] {
+    width: 100%;
+    background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px;
+  }
+  input[type=number] { padding: 6px 8px; }
+  select { background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px; padding: 8px; }
+  .btnRow { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px;
+    padding: 8px 14px; font-size: 0.9rem; cursor: pointer;
+  }
+  button:hover { background: #363c62; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .status { margin-top: 4px; font-size: 0.85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Single-Parameter Curve Walker</h1>
+<p class="sub">Watch one gradient descent step, worked out number by number.</p>
+
+<div class="layout">
+  <div class="panel">
+    <canvas id="plot" width="680" height="320"></canvas>
+  </div>
+
+  <div class="panel breakdown">
+    <h2>Step breakdown</h2>
+    <div class="brow" id="row-w"><span class="k">Current w</span><span class="v" id="v-w">—</span></div>
+    <div class="brow" id="row-loss"><span class="k">Loss L(w)</span><span class="v" id="v-loss">—</span></div>
+    <div class="brow" id="row-grad"><span class="k">dL/dw</span><span class="v" id="v-grad">—</span></div>
+    <div class="brow" id="row-lr"><span class="k">Learning rate</span><span class="v" id="v-lr">—</span></div>
+    <div class="brow" id="row-stepsize"><span class="k">Step size = lr × gradient</span><span class="v" id="v-stepsize">—</span></div>
+    <div class="brow" id="row-wnew"><span class="k">New w = w − step size</span><span class="v" id="v-wnew">—</span></div>
+    <div class="note" id="localNote">Settled into a local minimum — not the best possible fit. Try a different start.</div>
+    <div class="status" id="status">Set a starting w and take a step.</div>
+  </div>
+
+  <div class="panel controls">
+    <div class="field">
+      <label for="fnSelect">Loss function</label>
+      <select id="fnSelect">
+        <option value="parabola">Parabola: (w − 3)² + 1</option>
+        <option value="wiggly">Wiggly: 0.1w⁴ − w³ + 2w² + 1</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="wStart">Starting w: <span class="wLabel" id="wStartLabel">0.00</span></label>
+      <input type="range" id="wStart" min="-4" max="8" step="0.05" value="0">
+    </div>
+    <div class="field">
+      <label for="lr">Learning rate: <span class="lrLabel" id="lrLabel">0.10</span></label>
+      <input type="range" id="lr" min="0.01" max="1.5" step="0.01" value="0.1">
+    </div>
+    <div class="btnRow">
+      <button id="stepBtn">Take one step</button>
+      <button id="undoBtn" disabled>Undo last step</button>
+      <button id="resetBtn">Reset to start</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('plot');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const PAD = 40;
+
+  const fns = {
+    parabola: {
+      label: '(w − 3)² + 1',
+      loss: w => (w - 3) * (w - 3) + 1,
+      grad: w => 2 * (w - 3),
+      gradText: w => `2 × (${w.toFixed(3)} − 3)`,
+      domain: [-4, 8],
+      globalMinW: 3,
+    },
+    wiggly: {
+      label: '0.1w⁴ − w³ + 2w² + 1',
+      loss: w => 0.1 * w**4 - w**3 + 2 * w**2 + 1,
+      grad: w => 0.4 * w**3 - 3 * w**2 + 4 * w,
+      gradText: w => `0.4×${w.toFixed(3)}³ − 3×${w.toFixed(3)}² + 4×${w.toFixed(3)}`,
+      domain: [-4, 8],
+      globalMinW: null, // computed by sampling
+    },
+  };
+
+  let fnKey = 'parabola';
+  let f = fns[fnKey];
+
+  // find global min by sampling, used for the "local minimum" note
+  function computeGlobalMin(f) {
+    const [lo, hi] = f.domain;
+    let bestW = lo, bestL = f.loss(lo);
+    for (let w = lo; w <= hi; w += 0.01) {
+      const l = f.loss(w);
+      if (l < bestL) { bestL = l; bestW = w; }
+    }
+    return { w: bestW, loss: bestL };
+  }
+
+  let history = []; // array of w values, history[0] = start
+  let w = 0;
+  let lr = 0.1;
+  let animId = null;
+  let displayW = 0; // interpolated position for animation
+
+  const wStartSlider = document.getElementById('wStart');
+  const wStartLabel = document.getElementById('wStartLabel');
+  const lrSlider = document.getElementById('lr');
+  const lrLabel = document.getElementById('lrLabel');
+  const stepBtn = document.getElementById('stepBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const fnSelect = document.getElementById('fnSelect');
+  const statusEl = document.getElementById('status');
+  const localNote = document.getElementById('localNote');
+
+  function toPx(wVal, lVal, lo, hi, minL, maxL) {
+    const x = PAD + (wVal - lo) / (hi - lo) * (W - 2 * PAD);
+    const y = H - PAD - (lVal - minL) / (maxL - minL) * (H - 2 * PAD);
+    return [x, y];
+  }
+
+  function curveBounds() {
+    const [lo, hi] = f.domain;
+    let minL = Infinity, maxL = -Infinity;
+    for (let wv = lo; wv <= hi; wv += 0.05) {
+      const l = f.loss(wv);
+      if (l < minL) minL = l;
+      if (l > maxL) maxL = l;
+    }
+    const pad = (maxL - minL) * 0.08 || 1;
+    return [lo, hi, minL - pad, maxL + pad];
+  }
+
+  function draw(dotW) {
+    ctx.clearRect(0, 0, W, H);
+    const [lo, hi, minL, maxL] = curveBounds();
+
+    // grid + axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (let gx = Math.ceil(lo); gx <= hi; gx++) {
+      const [px] = toPx(gx, 0, lo, hi, minL, maxL);
+      ctx.beginPath(); ctx.moveTo(px, PAD); ctx.lineTo(px, H - PAD); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px sans-serif';
+    for (let gx = Math.ceil(lo); gx <= hi; gx++) {
+      const [px, py] = toPx(gx, minL, lo, hi, minL, maxL);
+      ctx.fillText(gx, px - 4, H - PAD + 16);
+    }
+
+    // curve
+    ctx.strokeStyle = '#5eead4';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let wv = lo; wv <= hi; wv += 0.02) {
+      const [px, py] = toPx(wv, f.loss(wv), lo, hi, minL, maxL);
+      if (wv === lo) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // gradient arrow at dotW (points in -gradient direction)
+    const g = f.grad(dotW);
+    const dir = -Math.sign(g || 1);
+    const arrowLen = Math.min(1.2, Math.abs(g) * 0.15) * dir;
+    const [ax0, ay0] = toPx(dotW, f.loss(dotW), lo, hi, minL, maxL);
+    const [ax1, ay1] = toPx(dotW + arrowLen, f.loss(dotW), lo, hi, minL, maxL);
+    if (Math.abs(arrowLen) > 0.02) {
+      ctx.strokeStyle = '#facc15';
+      ctx.fillStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ax0, ay0 - 14);
+      ctx.lineTo(ax1, ay0 - 14);
+      ctx.stroke();
+      const headDir = ax1 > ax0 ? 1 : -1;
+      ctx.beginPath();
+      ctx.moveTo(ax1, ay0 - 14);
+      ctx.lineTo(ax1 - headDir * 6, ay0 - 19);
+      ctx.lineTo(ax1 - headDir * 6, ay0 - 9);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // dot
+    const [px, py] = toPx(dotW, f.loss(dotW), lo, hi, minL, maxL);
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, py, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  function flash(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('flash');
+    void el.offsetWidth; // restart animation
+    el.classList.add('flash');
+  }
+
+  function updateBreakdown(prevW, gradVal, lrVal, stepSize, newW) {
+    document.getElementById('v-w').textContent = prevW.toFixed(4);
+    document.getElementById('v-loss').textContent = f.loss(prevW).toFixed(4);
+    document.getElementById('v-grad').textContent = `${f.gradText(prevW)} = ${gradVal.toFixed(4)}`;
+    document.getElementById('v-lr').textContent = lrVal.toFixed(3);
+    document.getElementById('v-stepsize').textContent = `${lrVal.toFixed(3)} × ${gradVal.toFixed(4)} = ${stepSize.toFixed(4)}`;
+    document.getElementById('v-wnew').textContent = `${prevW.toFixed(4)} − ${stepSize.toFixed(4)} = ${newW.toFixed(4)}`;
+    ['row-w','row-loss','row-grad','row-lr','row-stepsize','row-wnew'].forEach(flash);
+  }
+
+  function checkLocalMinNote() {
+    if (fnKey !== 'wiggly') { localNote.classList.remove('show'); return; }
+    const g = f.grad(w);
+    if (Math.abs(g) > 0.01) { localNote.classList.remove('show'); return; }
+    const glob = computeGlobalMin(f);
+    if (Math.abs(w - glob.w) > 0.5 && f.loss(w) > glob.loss + 0.05) {
+      localNote.classList.add('show');
+    } else {
+      localNote.classList.remove('show');
+    }
+  }
+
+  function animateTo(fromW, toW, onDone) {
+    if (animId) cancelAnimationFrame(animId);
+    const start = performance.now();
+    const dur = 350;
+    function frame(now) {
+      const t = Math.min(1, (now - start) / dur);
+      const eased = 1 - Math.pow(1 - t, 3);
+      displayW = fromW + (toW - fromW) * eased;
+      draw(displayW);
+      if (t < 1) {
+        animId = requestAnimationFrame(frame);
+      } else {
+        animId = null;
+        displayW = toW;
+        draw(displayW);
+        if (onDone) onDone();
+      }
+    }
+    animId = requestAnimationFrame(frame);
+  }
+
+  function doStep() {
+    const gradVal = f.grad(w);
+    const lrVal = lr;
+    const stepSize = lrVal * gradVal;
+    const newW = w - stepSize;
+
+    updateBreakdown(w, gradVal, lrVal, stepSize, newW);
+    history.push(w);
+    undoBtn.disabled = false;
+    statusEl.textContent = `Step ${history.length} taken.`;
+
+    const animFrom = displayW;
+    w = newW; // update source of truth immediately so rapid clicks use the real current w
+    animateTo(animFrom, newW, checkLocalMinNote);
+  }
+
+  function undoStep() {
+    if (history.length === 0) return;
+    const prevW = history.pop();
+    const animFrom = displayW;
+    w = prevW; // update source of truth immediately so rapid clicks use the real current w
+    animateTo(animFrom, prevW, () => {
+      checkLocalMinNote();
+      // recompute breakdown for the now-current w (as if about to take a step)
+      const gradVal = f.grad(w);
+      const stepSize = lr * gradVal;
+      updateBreakdown(w, gradVal, lr, stepSize, w - stepSize);
+    });
+    statusEl.textContent = `Undid step. ${history.length} step(s) remaining.`;
+    undoBtn.disabled = history.length === 0;
+  }
+
+  function resetToStart() {
+    if (animId) cancelAnimationFrame(animId);
+    history = [];
+    undoBtn.disabled = true;
+    w = parseFloat(wStartSlider.value);
+    displayW = w;
+    localNote.classList.remove('show');
+    statusEl.textContent = 'Set a starting w and take a step.';
+    const gradVal = f.grad(w);
+    const stepSize = lr * gradVal;
+    updateBreakdown(w, gradVal, lr, stepSize, w - stepSize);
+    draw(w);
+  }
+
+  wStartSlider.addEventListener('input', () => {
+    wStartLabel.textContent = parseFloat(wStartSlider.value).toFixed(2);
+    if (history.length === 0) resetToStart();
+  });
+  lrSlider.addEventListener('input', () => {
+    lr = parseFloat(lrSlider.value);
+    lrLabel.textContent = lr.toFixed(2);
+    const gradVal = f.grad(w);
+    const stepSize = lr * gradVal;
+    updateBreakdown(w, gradVal, lr, stepSize, w - stepSize);
+  });
+  fnSelect.addEventListener('change', () => {
+    fnKey = fnSelect.value;
+    f = fns[fnKey];
+    resetToStart();
+  });
+  stepBtn.addEventListener('click', doStep);
+  undoBtn.addEventListener('click', undoStep);
+  resetBtn.addEventListener('click', resetToStart);
+
+  wStartLabel.textContent = parseFloat(wStartSlider.value).toFixed(2);
+  lrLabel.textContent = lr.toFixed(2);
+  resetToStart();
+})();
+</script>
+</body>
+</html>

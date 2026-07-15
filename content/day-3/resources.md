@@ -16,6 +16,15 @@ Where ML breaks: distribution shift, spurious correlations, and other limits of 
 
 The paradigm shift from traditional rule-based programming to machines that improve at a task from data, without being explicitly programmed.
 
+## Interactive Demos
+
+- [Gradient Descent — 1D](content/day-3/demos/gradient-descent-1d.html)
+- [Gradient Descent — 2D](content/day-3/demos/gradient-descent-2d.html)
+- [Gradient Descent — Terrain](content/day-3/demos/gradient-descent-terrain.html)
+- [Gradient Descent vs. Random Search](content/day-3/demos/gradient-descent-vs-random.html)
+- [Gradient Descent — Learning Rate Race](content/day-3/demos/gradient-descent-lr-race.html)
+- [Gradient Descent — Linear Regression](content/day-3/demos/gradient-descent-linreg.html)
+
 ## Notebooks
 
 - [ ] link notebook(s) here

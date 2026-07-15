@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent: Learning Rate Race</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1220; --panel: #1a1e33; --text: #e8e9f3; --muted: #9aa0c0; --grid: #2a2f4a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; }
+  canvas { border-radius: 8px; display: block; background: #0b0e1c; width: 100%; height: auto; max-width: 760px; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; font-size: 0.85rem; }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+  th { color: var(--muted); font-weight: 600; }
+  .controls { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 16px; align-items: flex-end; }
+  .racerEdit { display: flex; flex-direction: column; gap: 4px; }
+  .racerEdit label { font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  input[type=number] { width: 70px; background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px; padding: 4px 6px; }
+  select { background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px; padding: 6px 8px; }
+  .btnRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  button { background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px; padding: 8px 14px; font-size: 0.9rem; cursor: pointer; }
+  button:hover { background: #363c62; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .status-Running { color: var(--muted); }
+  .status-Converged { color: #5eead4; }
+  .status-Diverged { color: #f87171; }
+  .status-Timeout { color: #facc15; }
+</style>
+</head>
+<body>
+
+<h1>Learning Rate Race</h1>
+<p class="sub">Same loss curve, same start, different learning rates — watch cautious, balanced, aggressive, and unstable race side by side.</p>
+
+<div class="panel">
+  <canvas id="plot" width="760" height="360"></canvas>
+  <div class="legend" id="legend"></div>
+
+  <table>
+    <thead><tr><th>Racer</th><th>Learning rate</th><th>Step</th><th>Loss</th><th>Status</th></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+
+  <div class="controls" id="editRow"></div>
+
+  <div class="controls">
+    <div class="racerEdit">
+      <label for="speed">Speed</label>
+      <select id="speed">
+        <option value="700">Slow</option>
+        <option value="400" selected>Normal</option>
+        <option value="150">Fast</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="btnRow">
+    <button id="startBtn">Start Race</button>
+    <button id="resetBtn">Reset Race</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('plot');
+  const ctx = canvas.getContext('2d');
+  const W = 760, H = 360;
+  const PAD = 40;
+  const W_MIN = -6, W_MAX = 8;
+  const W_START = -4;
+  const MAX_STEPS = 100;
+  const CONV_THRESH = 0.001;
+  const BOUND = 20;
+
+  function loss(w) { return (w - 3) * (w - 3) + 1; }
+  function grad(w) { return 2 * (w - 3); }
+
+  const DEFAULT_RACERS = [
+    { name: 'Cautious', lr: 0.05, color: '#60a5fa' },
+    { name: 'Balanced', lr: 0.3, color: '#4ade80' },
+    { name: 'Aggressive', lr: 0.9, color: '#fb923c' },
+    { name: 'Unstable', lr: 1.05, color: '#f87171' },
+  ];
+
+  let racers = [];
+  let running = false;
+  let timer = null;
+
+  function lossBounds() {
+    let minL = Infinity, maxL = -Infinity;
+    for (let w = W_MIN; w <= W_MAX; w += 0.05) {
+      const l = loss(w);
+      if (l < minL) minL = l;
+      if (l > maxL) maxL = l;
+    }
+    return [minL, maxL];
+  }
+  const [minL, maxL] = lossBounds();
+  const lPad = (maxL - minL) * 0.08;
+
+  function toPx(w, l) {
+    const x = PAD + (w - W_MIN) / (W_MAX - W_MIN) * (W - 2 * PAD);
+    const y = H - PAD - (l - (minL - lPad)) / (maxL + lPad - (minL - lPad)) * (H - 2 * PAD);
+    return [x, y];
+  }
+
+  function makeRacers() {
+    const inputs = document.querySelectorAll('.lrInput');
+    return DEFAULT_RACERS.map((d, i) => {
+      const lr = inputs.length ? parseFloat(inputs[i].value) : d.lr;
+      return {
+        name: d.name, color: d.color, lr,
+        w: W_START, step: 0, status: 'Running', increasingStreak: 0,
+        path: [W_START],
+      };
+    });
+  }
+
+  function buildEditRow() {
+    const row = document.getElementById('editRow');
+    row.innerHTML = '';
+    DEFAULT_RACERS.forEach((d, i) => {
+      const div = document.createElement('div');
+      div.className = 'racerEdit';
+      const label = document.createElement('label');
+      const swatch = document.createElement('span');
+      swatch.className = 'swatch';
+      swatch.style.background = d.color;
+      label.appendChild(swatch);
+      label.appendChild(document.createTextNode(d.name + ' lr'));
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.className = 'lrInput';
+      input.min = '0.001'; input.max = '2'; input.step = '0.01';
+      input.value = d.lr;
+      div.appendChild(label);
+      div.appendChild(input);
+      row.appendChild(div);
+    });
+  }
+
+  function buildLegend() {
+    const legend = document.getElementById('legend');
+    legend.innerHTML = '';
+    DEFAULT_RACERS.forEach(d => {
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<span class="swatch" style="background:${d.color}"></span> ${d.name} (lr=${d.lr})`;
+      legend.appendChild(item);
+    });
+  }
+
+  function drawIcon(px, py, kind, color) {
+    ctx.save();
+    ctx.translate(px, py - 22);
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    if (kind === 'check') {
+      ctx.fillStyle = color;
+      ctx.fillText('✔', 0, 0);
+    } else if (kind === 'explosion') {
+      ctx.fillText('\u{1F4A5}', 0, 0);
+    } else if (kind === 'clock') {
+      ctx.fillText('⏱', 0, 0);
+    }
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // axes
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    for (let wv = Math.ceil(W_MIN); wv <= W_MAX; wv += 2) {
+      const [px] = toPx(wv, minL);
+      ctx.beginPath(); ctx.moveTo(px, PAD); ctx.lineTo(px, H - PAD); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px sans-serif';
+    for (let wv = Math.ceil(W_MIN); wv <= W_MAX; wv += 2) {
+      const [px, py] = toPx(wv, minL - lPad);
+      ctx.fillText(wv, px - 4, H - PAD + 16);
+    }
+
+    // curve
+    ctx.strokeStyle = '#e8e9f3';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let w = W_MIN; w <= W_MAX; w += 0.05) {
+      const [px, py] = toPx(w, loss(w));
+      if (w === W_MIN) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    // minimum marker
+    ctx.fillStyle = '#facc15';
+    const [mx, my] = toPx(3, loss(3));
+    ctx.beginPath(); ctx.arc(mx, my, 4, 0, Math.PI * 2); ctx.fill();
+
+    // racers: trails then dots
+    for (const r of racers) {
+      ctx.strokeStyle = r.color + '80';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < r.path.length; i++) {
+        const [px, py] = toPx(r.path[i], loss(r.path[i]));
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+    for (const r of racers) {
+      const wClamped = Math.max(W_MIN, Math.min(W_MAX, r.w));
+      const [px, py] = toPx(wClamped, loss(Math.max(-BOUND, Math.min(BOUND, r.w))));
+      ctx.fillStyle = r.color;
+      ctx.beginPath();
+      ctx.arc(px, py, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      if (r.status === 'Converged') drawIcon(px, py, 'check', r.color);
+      else if (r.status === 'Diverged') drawIcon(px, py, 'explosion');
+      else if (r.status === 'Timeout') drawIcon(px, py, 'clock');
+    }
+  }
+
+  function updateTable() {
+    const body = document.getElementById('tableBody');
+    body.innerHTML = '';
+    for (const r of racers) {
+      const tr = document.createElement('tr');
+      const l = isFinite(r.w) ? loss(r.w) : NaN;
+      tr.innerHTML = `
+        <td><span class="swatch" style="background:${r.color}"></span> ${r.name}</td>
+        <td>${r.lr.toFixed(3)}</td>
+        <td>${r.step}</td>
+        <td>${isFinite(l) ? l.toFixed(4) : '—'}</td>
+        <td class="status-${r.status}">${statusText(r)}</td>`;
+      body.appendChild(tr);
+    }
+  }
+
+  function statusText(r) {
+    if (r.status === 'Converged') return `Converged in ${r.step} steps`;
+    if (r.status === 'Diverged') return 'Diverged';
+    if (r.status === 'Timeout') return 'Did not converge in time';
+    return 'Running';
+  }
+
+  function stepRacer(r) {
+    if (r.status !== 'Running') return;
+    const g = grad(r.w);
+    const prevLoss = loss(r.w);
+    const nw = r.w - r.lr * g;
+    r.w = nw;
+    r.step++;
+    r.path.push(nw);
+
+    const newLoss = loss(nw);
+    if (newLoss > prevLoss) r.increasingStreak++; else r.increasingStreak = 0;
+
+    if (!isFinite(nw) || Math.abs(nw) > BOUND || r.increasingStreak >= 3) {
+      r.status = 'Diverged';
+      return;
+    }
+    if (Math.abs(grad(nw)) < CONV_THRESH) {
+      r.status = 'Converged';
+      return;
+    }
+    if (r.step >= MAX_STEPS) {
+      r.status = 'Timeout';
+    }
+  }
+
+  function tick() {
+    let anyRunning = false;
+    for (const r of racers) {
+      stepRacer(r);
+      if (r.status === 'Running') anyRunning = true;
+    }
+    updateTable();
+    draw();
+    if (!anyRunning) stopRace();
+  }
+
+  function startRace() {
+    if (running) return;
+    running = true;
+    document.getElementById('startBtn').disabled = true;
+    document.querySelectorAll('.lrInput').forEach(inp => inp.disabled = true);
+    const interval = parseInt(document.getElementById('speed').value, 10);
+    timer = setInterval(tick, interval);
+  }
+  function stopRace() {
+    running = false;
+    document.getElementById('startBtn').disabled = false;
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  function resetRace() {
+    stopRace();
+    document.querySelectorAll('.lrInput').forEach(inp => inp.disabled = false);
+    racers = makeRacers();
+    updateTable();
+    draw();
+  }
+
+  document.getElementById('startBtn').addEventListener('click', startRace);
+  document.getElementById('resetBtn').addEventListener('click', resetRace);
+
+  buildEditRow();
+  buildLegend();
+  racers = makeRacers();
+  updateTable();
+  draw();
+})();
+</script>
+</body>
+</html>

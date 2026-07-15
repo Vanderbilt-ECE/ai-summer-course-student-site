@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent vs. Random Search</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #0f1220; --panel: #1a1e33; --text: #e8e9f3; --muted: #9aa0c0; --grid: #2a2f4a;
+    --blue: #60a5fa; --orange: #fb923c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  p.sub { color: var(--muted); margin: 0 0 16px; font-size: 0.9rem; }
+  .layout { display: flex; gap: 20px; flex-wrap: wrap; }
+  .panel { background: var(--panel); border-radius: 12px; padding: 16px; }
+  canvas { border-radius: 8px; display: block; background: #0b0e1c; width: 100%; height: auto; cursor: crosshair; }
+  .plotPanel { flex: 1 1 460px; max-width: 520px; }
+  .side { flex: 1 1 260px; }
+  .row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 0.92rem; border-bottom: 1px solid var(--grid); }
+  .row span:first-child { color: var(--muted); }
+  .barWrap { margin-top: 14px; }
+  .barLabel { font-size: 0.82rem; color: var(--muted); margin-bottom: 3px; }
+  .barTrack { background: #232852; border-radius: 6px; height: 14px; overflow: hidden; margin-bottom: 10px; }
+  .barFill { height: 100%; border-radius: 6px; transition: width 0.25s ease; }
+  .summary { margin-top: 14px; padding: 10px; border-radius: 8px; background: #232852; font-size: 0.88rem; min-height: 1.2em; }
+  .btnRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  button { background: #2a2f4a; color: var(--text); border: 1px solid #3a4066; border-radius: 6px; padding: 8px 14px; font-size: 0.9rem; cursor: pointer; }
+  button:hover { background: #363c62; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+  label { font-size: 0.85rem; color: var(--muted); }
+  input[type=range] { width: 100%; }
+  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 0.85rem; }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+
+<h1>Gradient Descent vs. Random Search</h1>
+<p class="sub">Same landscape, same start, same step budget — one dot follows the gradient, the other stumbles around and keeps only lucky moves.</p>
+
+<div class="layout">
+  <div class="panel plotPanel">
+    <canvas id="plot" width="480" height="480"></canvas>
+    <div class="legend">
+      <div class="item"><span class="swatch" style="background:var(--blue)"></span> Gradient descent</div>
+      <div class="item"><span class="swatch" style="background:var(--orange)"></span> Random search</div>
+    </div>
+  </div>
+
+  <div class="panel side">
+    <div class="row"><span>Step</span><span id="valStep">0 / 30</span></div>
+    <div class="row"><span>GD loss</span><span id="valGDLoss">—</span></div>
+    <div class="row"><span>Random search loss</span><span id="valRSLoss">—</span></div>
+
+    <div class="barWrap">
+      <div class="barLabel">Gradient descent</div>
+      <div class="barTrack"><div class="barFill" id="barGD" style="width:0%;background:var(--blue)"></div></div>
+      <div class="barLabel">Random search</div>
+      <div class="barTrack"><div class="barFill" id="barRS" style="width:0%;background:var(--orange)"></div></div>
+    </div>
+
+    <div class="summary" id="summary">Click the plot to place a shared start point.</div>
+
+    <div class="field">
+      <label for="steps">Step budget: <span id="stepsLabel">30</span></label>
+      <input type="range" id="steps" min="10" max="80" step="1" value="30">
+    </div>
+    <div class="field">
+      <label for="rsStep">Random search step size: <span id="rsStepLabel">0.50</span></label>
+      <input type="range" id="rsStep" min="0.05" max="1.5" step="0.05" value="0.5">
+    </div>
+
+    <div class="btnRow">
+      <button id="startBtn" disabled>Start</button>
+      <button id="resetBtn">Reset (random start)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('plot');
+  const ctx = canvas.getContext('2d');
+  const W = 480, H = 480;
+  const RANGE = 5;
+  const A = 1, B = 3; // L = A*x^2 + B*y^2, same bowl as tool #1
+
+  function loss(x, y) { return A * x * x + B * y * y; }
+  function grad(x, y) { return [2 * A * x, 2 * B * y]; }
+
+  const toPx = (x, y) => [(x + RANGE) / (2 * RANGE) * W, H - (y + RANGE) / (2 * RANGE) * H];
+  const toData = (px, py) => [px / W * (2 * RANGE) - RANGE, (H - py) / H * (2 * RANGE) - RANGE];
+  const clamp = v => Math.max(-RANGE, Math.min(RANGE, v));
+
+  const GD_LR = 0.15;
+
+  let start = null; // {x,y}
+  let gd = null, rs = null;
+  let stepCount = 0;
+  let stepBudget = 30;
+  let running = false;
+  let timer = null;
+
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const stepsSlider = document.getElementById('steps');
+  const stepsLabel = document.getElementById('stepsLabel');
+  const rsStepSlider = document.getElementById('rsStep');
+  const rsStepLabel = document.getElementById('rsStepLabel');
+
+  function drawBowlBackground() {
+    const img = ctx.createImageData(W, H);
+    let maxLv = Math.max(loss(RANGE, RANGE), loss(RANGE, -RANGE)) || 1;
+    for (let py = 0; py < H; py += 2) {
+      for (let px = 0; px < W; px += 2) {
+        const [x, y] = toData(px, py);
+        const l = loss(x, y);
+        const u = Math.max(0, Math.min(1, l / maxLv));
+        const r = 20 + u * 30, g = 30 + (1 - u) * 130, b = 50 + (1 - u) * 140;
+        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+          const idx = ((py + dy) * W + (px + dx)) * 4;
+          if (idx < img.data.length - 4) { img.data[idx]=r; img.data[idx+1]=g; img.data[idx+2]=b; img.data[idx+3]=255; }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    const levels = [1, 4, 9, 16, 25, 36, 49];
+    const N = 80, cell = W / N;
+    for (const lvl of levels) {
+      ctx.beginPath();
+      for (let j = 0; j < N; j++) {
+        for (let i = 0; i < N; i++) {
+          const f = (ii, jj) => { const [x,y] = toData(ii*cell, jj*cell); return loss(x,y) - lvl; };
+          const v00=f(i,j), v10=f(i+1,j), v11=f(i+1,j+1), v01=f(i,j+1);
+          const corners=[v00,v10,v11,v01];
+          const coords=[[i,j],[i+1,j],[i+1,j+1],[i,j+1]];
+          const pts=[];
+          for (let k=0;k<4;k++){
+            const a=corners[k], bb=corners[(k+1)%4];
+            if ((a<0)!==(bb<0)) {
+              const t=a/(a-bb);
+              const [ax,ay]=coords[k],[bx,by]=coords[(k+1)%4];
+              pts.push([(ax+(bx-ax)*t)*cell,(ay+(by-ay)*t)*cell]);
+            }
+          }
+          if (pts.length>=2){ctx.moveTo(pts[0][0],pts[0][1]);ctx.lineTo(pts[1][0],pts[1][1]);}
+        }
+      }
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.beginPath();
+    const [ox, oy] = toPx(0, 0);
+    ctx.moveTo(ox, 0); ctx.lineTo(ox, H);
+    ctx.moveTo(0, oy); ctx.lineTo(W, oy);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '11px sans-serif';
+    for (let v = -RANGE; v <= RANGE; v++) {
+      if (v === 0) continue;
+      const [px] = toPx(v, 0); ctx.fillText(v, px - 6, oy + 14);
+      const [, py] = toPx(0, v); ctx.fillText(v, ox + 4, py + 4);
+    }
+  }
+
+  function drawStar(cx, cy) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.fillStyle = '#facc15';
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const spikes=5, outer=9, inner=4;
+    let rot = Math.PI/2*3;
+    const step = Math.PI/spikes;
+    ctx.moveTo(0,-outer);
+    for (let i=0;i<spikes;i++){
+      let x=Math.cos(rot)*outer,y=Math.sin(rot)*outer;
+      ctx.lineTo(x,y); rot+=step;
+      x=Math.cos(rot)*inner; y=Math.sin(rot)*inner;
+      ctx.lineTo(x,y); rot+=step;
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawTrail(path, color) {
+    const n = path.length;
+    for (let i = 1; i < n; i++) {
+      const alpha = 0.15 + 0.85 * (i / n);
+      ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2, '0');
+      ctx.lineWidth = 2;
+      const [x0, y0] = toPx(path[i-1].x, path[i-1].y);
+      const [x1, y1] = toPx(path[i].x, path[i].y);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    }
+  }
+  function drawDot(p, color) {
+    const [px, py] = toPx(clamp(p.x), clamp(p.y));
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.stroke();
+  }
+
+  function redraw() {
+    drawBowlBackground();
+    const [ox, oy] = toPx(0, 0);
+    drawStar(ox, oy);
+    if (gd) drawTrail(gd.path, '#60a5fa');
+    if (rs) drawTrail(rs.path, '#fb923c');
+    if (gd) drawDot(gd, '#60a5fa');
+    if (rs) drawDot(rs, '#fb923c');
+  }
+
+  function updateReadout() {
+    document.getElementById('valStep').textContent = `${stepCount} / ${stepBudget}`;
+    document.getElementById('valGDLoss').textContent = gd ? loss(gd.x, gd.y).toFixed(4) : '—';
+    document.getElementById('valRSLoss').textContent = rs ? loss(rs.x, rs.y).toFixed(4) : '—';
+
+    const gdL = gd ? loss(gd.x, gd.y) : 0;
+    const rsL = rs ? loss(rs.x, rs.y) : 0;
+    const maxBar = Math.max(gdL, rsL, 0.0001);
+    document.getElementById('barGD').style.width = (100 * gdL / maxBar) + '%';
+    document.getElementById('barRS').style.width = (100 * rsL / maxBar) + '%';
+  }
+
+  function stepGD() {
+    const [gx, gy] = grad(gd.x, gd.y);
+    gd.x = gd.x - GD_LR * gx;
+    gd.y = gd.y - GD_LR * gy;
+    gd.path.push({ x: gd.x, y: gd.y });
+  }
+
+  function stepRS() {
+    const stepSize = parseFloat(rsStepSlider.value);
+    const cand = {
+      x: rs.x + (Math.random() * 2 - 1) * stepSize,
+      y: rs.y + (Math.random() * 2 - 1) * stepSize,
+    };
+    if (loss(cand.x, cand.y) < loss(rs.x, rs.y)) {
+      rs.x = cand.x; rs.y = cand.y;
+    }
+    rs.path.push({ x: rs.x, y: rs.y });
+  }
+
+  function tick() {
+    stepGD();
+    stepRS();
+    stepCount++;
+    updateReadout();
+    redraw();
+    if (stepCount >= stepBudget) {
+      stopRun();
+      const gdL = loss(gd.x, gd.y), rsL = loss(rs.x, rs.y);
+      document.getElementById('summary').textContent =
+        `Gradient descent reached a loss of ${gdL.toFixed(3)} in ${stepBudget} steps. ` +
+        `Random search reached ${rsL.toFixed(3)}.`;
+    }
+  }
+
+  function startRun() {
+    if (running || !start) return;
+    running = true;
+    startBtn.disabled = true;
+    stepBudget = parseInt(stepsSlider.value, 10);
+    stepsSlider.disabled = true;
+    rsStepSlider.disabled = true;
+    document.getElementById('summary').textContent = 'Running…';
+    timer = setInterval(tick, 200);
+  }
+  function stopRun() {
+    running = false;
+    startBtn.disabled = false;
+    stepsSlider.disabled = false;
+    rsStepSlider.disabled = false;
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+
+  function setStart(x, y) {
+    stopRun();
+    start = { x: clamp(x), y: clamp(y) };
+    gd = { x: start.x, y: start.y, path: [{ x: start.x, y: start.y }] };
+    rs = { x: start.x, y: start.y, path: [{ x: start.x, y: start.y }] };
+    stepCount = 0;
+    startBtn.disabled = false;
+    document.getElementById('summary').textContent = 'Ready. Press Start.';
+    updateReadout();
+    redraw();
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (W / rect.width);
+    const py = (e.clientY - rect.top) * (H / rect.height);
+    const [x, y] = toData(px, py);
+    setStart(x, y);
+  });
+
+  startBtn.addEventListener('click', startRun);
+  resetBtn.addEventListener('click', () => {
+    const x = (Math.random() * 2 - 1) * RANGE * 0.8;
+    const y = (Math.random() * 2 - 1) * RANGE * 0.8;
+    setStart(x, y);
+  });
+  stepsSlider.addEventListener('input', () => { stepsLabel.textContent = stepsSlider.value; });
+  rsStepSlider.addEventListener('input', () => { rsStepLabel.textContent = parseFloat(rsStepSlider.value).toFixed(2); });
+
+  redraw();
+})();
+</script>
+</body>
+</html>
