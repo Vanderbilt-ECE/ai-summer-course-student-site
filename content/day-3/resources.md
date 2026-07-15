@@ -27,7 +27,7 @@ The paradigm shift from traditional rule-based programming to machines that impr
 
 ## Notebooks
 
-- [ ] link notebook(s) here
+- [Training, Testing, and Overfitting](https://drive.google.com/file/d/14jEEDvYEFTCi3kB2pNARUsaTh5xH1c_v/view?usp=sharing)
 
 ## Worksheets
 
