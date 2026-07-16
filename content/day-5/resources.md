@@ -12,9 +12,10 @@ How a network assigns credit (and blame) across many weights: backpropagation, t
 
 Opens the modeling black box: linear regression, then logistic regression, then the point where linear models hit a wall — setting up neural networks.
 
-## Notebooks
+## Presentation
 
-- [ ] link notebook(s) here
+- [Google sheets link](https://docs.google.com/presentation/d/14gLd3IDlgUF57Qvz6F4RV8mloKuNPNcG0wm1IsrdugU/edit?usp=sharing)
+
 
 ## Worksheets
 
