@@ -145,7 +145,20 @@
         "hasSlides": true
       }
     ],
-    "worksheets": []
+    "worksheets": [
+      {
+        "slug": "mlp-group-project-dataset-options",
+        "title": "MLP Group Project - Dataset Options"
+      },
+      {
+        "slug": "mlp-group-project-assignment",
+        "title": "MLP Group Project Assignment"
+      },
+      {
+        "slug": "rnn-lstm-group-project-assignment",
+        "title": "RNN LSTM Group Project Assignment"
+      }
+    ]
   },
   {
     "slug": "day-6",

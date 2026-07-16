@@ -15,3 +15,11 @@ Opens the modeling black box: linear regression, then logistic regression, then 
 ## Notebooks
 
 - [ ] link notebook(s) here
+
+## Worksheets
+
+- [MLP Group Project - Dataset Options](#/day-5/worksheets/mlp-group-project-dataset-options)
+
+- [MLP Group Project Assignment](#/day-5/worksheets/mlp-group-project-assignment)
+
+- [RNN LSTM Group Project Assignment](#/day-5/worksheets/rnn-lstm-group-project-assignment)
