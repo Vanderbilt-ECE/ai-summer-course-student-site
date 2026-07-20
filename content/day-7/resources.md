@@ -25,3 +25,7 @@ Just enough transformer architecture to understand why self-attention — resolv
 - [Banking FAQs](https://www.kaggle.com/datasets/rudrakumargupta/banking-faq-dataset-for-chatbot-training)
 - [Grocery FAQs](https://www.kaggle.com/datasets/josephsueke/tesco-faq)
 
+## API Keys
+
+- [API Keys](https://docs.google.com/spreadsheets/d/1yO7u3Zjj30mB8CZBHUwhW2P2h0O8V83V5vWilFbd-Y4/edit?usp=sharing)
+
