@@ -14,4 +14,4 @@ Just enough transformer architecture to understand why self-attention — resolv
 
 ## Notebooks
 
-- [ ] link notebook(s) here
+- [Movie review generator](https://drive.google.com/file/d/1qh675D2Dowc8B0fSSm-dRY6vWx4JkVIa/view?usp=sharing)
