@@ -15,3 +15,13 @@ Just enough transformer architecture to understand why self-attention — resolv
 ## Notebooks
 
 - [Movie review generator](https://drive.google.com/file/d/1qh675D2Dowc8B0fSSm-dRY6vWx4JkVIa/view?usp=sharing)
+
+## Datasets
+
+- [Wikipedia Movie Plots](https://www.kaggle.com/datasets/jrobischon/wikipedia-movie-plots?resource=download)
+- [Mental Health FAQs](https://www.kaggle.com/datasets/narendrageek/mental-health-faq-for-chatbot)
+- [Covid 19 FAQs](https://www.kaggle.com/datasets/narendrageek/mental-health-faq-for-chatbot)
+- [Python FAQs](https://www.kaggle.com/datasets/younushassankhan/python-faqs)
+- [Banking FAQs](https://www.kaggle.com/datasets/rudrakumargupta/banking-faq-dataset-for-chatbot-training)
+- [Grocery FAQs](https://www.kaggle.com/datasets/josephsueke/tesco-faq)
+
