@@ -219,6 +219,11 @@
         "hasSlides": true
       }
     ],
-    "worksheets": []
+    "worksheets": [
+      {
+        "slug": "tool-calling-pydantic-assignment",
+        "title": "Tool Calling & Pydantic Assignment"
+      }
+    ]
   }
 ]

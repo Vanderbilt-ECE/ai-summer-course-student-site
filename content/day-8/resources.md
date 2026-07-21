@@ -15,3 +15,7 @@ The shift from single-turn chat to multi-step, tool-using systems — from "answ
 ## Notebooks
 
 - [ ] link notebook(s) here
+
+## Worksheets
+
+- [Tool Calling & Pydantic Assignment](#/day-8/worksheets/tool-calling-pydantic-assignment)
