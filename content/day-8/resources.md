@@ -15,6 +15,7 @@ The shift from single-turn chat to multi-step, tool-using systems — from "answ
 ## Notebooks
 
 - [Tool Calling Notebook](https://colab.research.google.com/drive/1Bph13OJlGpEhpxaTzpu6piAWiaJ2uDjl?usp=sharing)
+- [Tavily Web Search Examples](https://drive.google.com/file/d/1Mr6C8DX2fXPrAlvSu1mtfcKLj8iE8Q3Y/view?usp=sharing)
 
 ## Worksheets
 
