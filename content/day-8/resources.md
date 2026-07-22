@@ -18,6 +18,7 @@ The shift from single-turn chat to multi-step, tool-using systems — from "answ
 - [Tavily Web Search Examples](https://drive.google.com/file/d/1Mr6C8DX2fXPrAlvSu1mtfcKLj8iE8Q3Y/view?usp=sharing)
 - [Image Generation Examples](https://drive.google.com/file/d/1L_-QmOSsLeHO7uACoDDpcE4OmBFBa4aG/view?usp=sharing)
 - [Agents from Scratch](https://drive.google.com/file/d/1QjLPOMi1qBHTS1lhG0YYguqaHUjlGrxk/view?usp=sharing)
+- [Vision-Language Model](https://drive.google.com/file/d/1uSxy8Y5XrIpzAkc7UPuE5jqSYlFON01z/view?usp=sharing)
 
 ## Worksheets
 
